@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Acl/etc/acl.xsd">
+    <acl>
+        <resources>
+            <resource id="Magento_Backend::admin">
+                <resource id="Magento_Backend::stores">
+                    <resource id="Magento_Backend::stores_settings">
+                        <resource id="Magento_Config::config">
+                            <resource id="Angeo_McpServer::config" title="Angeo MCP Server Section"/>
+                        </resource>
+                    </resource>
+                </resource>
+                <!-- Grant this resource to the "AI Agents" Integration for Bearer-token access -->
+                <resource id="Angeo_McpServer::agent_access" title="MCP Server Agent Access"/>
+            </resource>
+        </resources>
+    </acl>
+</config>

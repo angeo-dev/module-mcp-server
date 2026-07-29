@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!--
+  Exposes the Add-to-Claude button as a Magento widget, so a merchant can place
+  it anywhere (footer, sidebar, CMS page) from Content → Widgets, with no code.
+-->
+<widgets xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Widget:etc/widget.xsd">
+    <widget id="angeo_mcpserver_claude_button"
+            class="Angeo\McpServer\Block\ClaudeButton">
+        <label translate="true">Add to Claude Button</label>
+        <description translate="true">One-click button that lets shoppers connect this store to Claude. Requires a Connector URL in Stores → Configuration → Angeo → MCP Server → Claude Connector.</description>
+        <parameters>
+            <parameter name="button_label" xsi:type="text" visible="true" sortOrder="10">
+                <label translate="true">Button Label</label>
+                <description translate="true">Defaults to "Add to Claude".</description>
+            </parameter>
+        </parameters>
+        <containers>
+            <container name="content">
+                <template name="default" value="default"/>
+            </container>
+            <container name="sidebar.main">
+                <template name="default" value="default"/>
+            </container>
+            <container name="footer">
+                <template name="default" value="default"/>
+            </container>
+        </containers>
+    </widget>
+</widgets>

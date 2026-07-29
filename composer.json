@@ -1,0 +1,37 @@
+{
+    "name": "angeo/module-mcp-server",
+    "description": "MCP (Model Context Protocol) server for Magento 2 — gives AI agents (Claude, Gemini, ChatGPT, custom assistants) live, structured, rate-limited access to your catalog: product search, product cards, categories, and store info. Read-only by default, no scraping required.",
+    "type": "magento2-module",
+    "version": "1.0.0",
+    "license": "MIT",
+    "keywords": [
+        "magento2", "mcp", "model-context-protocol", "ai-agents", "agentic-commerce",
+        "aeo", "llm", "claude", "chatgpt", "gemini", "ucp", "adobe-commerce"
+    ],
+    "homepage": "https://angeo.dev",
+    "support": {
+        "issues": "https://github.com/angeo-dev/module-mcp-server/issues",
+        "email": "support@angeo.dev"
+    },
+    "require": {
+        "php": "~8.1.0||~8.2.0||~8.3.0||~8.4.0",
+        "magento/framework": ">=103.0.6",
+        "magento/module-store": "*",
+        "magento/module-catalog": "*",
+        "magento/module-catalog-inventory": "*",
+        "magento/module-configurable-product": "*",
+        "magento/module-customer": "*",
+        "magento/module-integration": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6"
+    },
+    "suggest": {
+        "angeo/module-ucp": "Publish a /.well-known/ucp profile that advertises this MCP endpoint to UCP-compliant agents",
+        "angeo/module-llms-txt": "Generate llms.txt discovery files that link agents to this server"
+    },
+    "autoload": {
+        "files": ["registration.php"],
+        "psr-4": { "Angeo\\McpServer\\": "" }
+    }
+}

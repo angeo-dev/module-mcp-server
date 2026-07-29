@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <!-- Built-in tool pool. Third-party modules append their own items here;
+         see Api/ToolInterface docblock for the contract. -->
+    <type name="Angeo\McpServer\Model\Tool\ToolRegistry">
+        <arguments>
+            <argument name="tools" xsi:type="array">
+                <item name="search_products" xsi:type="object">Angeo\McpServer\Model\Tool\SearchProductsTool</item>
+                <item name="get_product" xsi:type="object">Angeo\McpServer\Model\Tool\GetProductTool</item>
+                <item name="list_categories" xsi:type="object">Angeo\McpServer\Model\Tool\ListCategoriesTool</item>
+                <item name="get_store_info" xsi:type="object">Angeo\McpServer\Model\Tool\GetStoreInfoTool</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <type name="Magento\Framework\Console\CommandList">
+        <arguments>
+            <argument name="commands" xsi:type="array">
+                <item name="angeo_mcp_tools" xsi:type="object">Angeo\McpServer\Console\Command\ToolsCommand</item>
+            </argument>
+        </arguments>
+    </type>
+</config>

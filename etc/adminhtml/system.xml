@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <tab id="angeo" translate="label" sortOrder="400">
+            <label>Angeo</label>
+        </tab>
+        <section id="angeo_mcp" translate="label" type="text" sortOrder="120"
+                 showInDefault="1" showInWebsite="1" showInStore="1">
+            <class>separator-top</class>
+            <label>MCP Server</label>
+            <tab>angeo</tab>
+            <resource>Angeo_McpServer::config</resource>
+
+            <group id="general" translate="label" type="text" sortOrder="10"
+                   showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>General</label>
+                <field id="enabled" translate="label comment" type="select" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Enable MCP Server</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[Serves read-only commerce tools (product search, product cards, categories, store info) to AI agents at <code>POST /mcp</code>. Tools expose only what an anonymous shopper already sees. <strong>Add a full-page-cache bypass for /mcp</strong> — see the README for Varnish/LiteSpeed snippets.]]></comment>
+                </field>
+                <field id="require_token" translate="label comment" type="select" sortOrder="20"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Require Bearer Token</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[When <em>Yes</em>, every request must carry an Access Token of an active Integration (System → Extensions → Integrations, grant it the <em>MCP Server Agent Access</em> resource). Revoking the integration instantly cuts agent access.]]></comment>
+                </field>
+                <field id="log_calls" translate="label comment" type="select" sortOrder="30"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Log Agent Calls</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[One JSON line per agent tool call in <code>var/log/angeo_mcp_agent.jsonl</code> (timestamp, tool, user agent, duration — never payloads or tokens). This is the data source for agent-traffic analytics.]]></comment>
+                </field>
+            </group>
+
+
+            <group id="connector" translate="label" type="text" sortOrder="15"
+                   showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Claude Connector</label>
+                <comment><![CDATA[Lets shoppers connect this store to Claude in one click. Paste the connector URL your MCP provider issued you, then place the generated button anywhere on the storefront.]]></comment>
+
+                <field id="url" translate="label comment" type="text" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Connector URL</label>
+                    <validate>validate-url</validate>
+                    <comment><![CDATA[The HTTPS MCP endpoint shoppers connect to, e.g. <code>https://mcp.example.com/t/your-store/mcp</code>. Leave empty to hide the button. This is <strong>not</strong> your store's own <code>/mcp</code> path — that endpoint has no OAuth and cannot be added to Claude directly.]]></comment>
+                </field>
+
+                <field id="label" translate="label comment" type="text" sortOrder="20"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Connector Name</label>
+                    <comment><![CDATA[Shown to the shopper in Claude's connector list. Defaults to the store name.]]></comment>
+                </field>
+            </group>
+
+            <group id="catalog" translate="label" type="text" sortOrder="20"
+                   showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Catalog</label>
+                <field id="customer_group_id" translate="label comment" type="select" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Price Customer Group</label>
+                    <source_model>Magento\Customer\Model\Config\Source\Group</source_model>
+                    <comment>Customer group whose prices agents see. Default: NOT LOGGED IN.</comment>
+                </field>
+                <field id="default_page_size" translate="label" type="text" sortOrder="20"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Default Page Size</label>
+                    <validate>validate-digits validate-greater-than-zero</validate>
+                </field>
+                <field id="max_page_size" translate="label" type="text" sortOrder="30"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Max Page Size</label>
+                    <validate>validate-digits validate-greater-than-zero</validate>
+                    <comment>Hard protocol cap is 100.</comment>
+                </field>
+            </group>
+
+            <group id="security" translate="label" type="text" sortOrder="30"
+                   showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Security</label>
+                <field id="rate_limit_per_minute" translate="label comment" type="text" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Rate Limit (requests/minute)</label>
+                    <validate>validate-digits</validate>
+                    <comment>Per client IP (plus token, when present). 0 disables the limiter.</comment>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>

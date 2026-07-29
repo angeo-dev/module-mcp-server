@@ -1,0 +1,43 @@
+<?php
+/**
+ * @var \Angeo\McpServer\Block\ClaudeButton $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+?>
+<?php if ($block->isAvailable()): ?>
+<a class="angeo-claude-button"
+   href="<?= $escaper->escapeUrl($block->getConnectUrl()) ?>"
+   target="_blank"
+   rel="noopener noreferrer">
+    <svg class="angeo-claude-button__icon" width="16" height="16" viewBox="0 0 24 24"
+         aria-hidden="true" focusable="false">
+        <path d="M12 2.5 22 20.5H2z" fill="currentColor"/>
+    </svg>
+    <span><?= $escaper->escapeHtml($block->getButtonLabel()) ?></span>
+</a>
+
+<style>
+    .angeo-claude-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        border-radius: 8px;
+        background: #1a1a1e;
+        color: #fff;
+        font-weight: 600;
+        line-height: 1;
+        text-decoration: none;
+        transition: background .15s ease;
+    }
+    .angeo-claude-button:hover,
+    .angeo-claude-button:focus {
+        background: #33333a;
+        color: #fff;
+        text-decoration: none;
+    }
+    .angeo-claude-button__icon {
+        flex: 0 0 auto;
+    }
+</style>
+<?php endif; ?>

@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <angeo_mcp>
+            <general>
+                <!-- Enabled read-only by default: a module that "does nothing"
+                     after install generates GitHub issues, not gratitude
+                     (angeo/module-ucp v1.2.0 lesson). -->
+                <enabled>1</enabled>
+                <require_token>0</require_token>
+                <log_calls>1</log_calls>
+            </general>
+            <catalog>
+                <customer_group_id>0</customer_group_id>
+                <default_page_size>10</default_page_size>
+                <max_page_size>50</max_page_size>
+            </catalog>
+            <security>
+                <rate_limit_per_minute>60</rate_limit_per_minute>
+            </security>
+        </angeo_mcp>
+    </default>
+</config>
