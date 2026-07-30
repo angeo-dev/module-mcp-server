@@ -2,7 +2,7 @@
     "name": "angeo/module-mcp-server",
     "description": "MCP (Model Context Protocol) server for Magento 2 — gives AI agents (Claude, Gemini, ChatGPT, custom assistants) live, structured, rate-limited access to your catalog: product search, product cards, categories, and store info. Read-only by default, no scraping required.",
     "type": "magento2-module",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "license": "MIT",
     "keywords": [
         "magento2", "mcp", "model-context-protocol", "ai-agents", "agentic-commerce",
