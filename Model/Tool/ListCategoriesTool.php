@@ -24,6 +24,8 @@ use Magento\Store\Api\Data\StoreInterface;
  */
 class ListCategoriesTool implements ToolInterface, ToolAnnotationsInterface
 {
+    use ReadOnlyAnnotationsTrait;
+
     private const MAX_DEPTH = 4;
 
     public function __construct(
@@ -39,9 +41,10 @@ class ListCategoriesTool implements ToolInterface, ToolAnnotationsInterface
 
     public function getDescription(): string
     {
-        return 'List the store\'s active category tree with URLs and product counts.'
-            . "\n\n"
-            . 'USE THIS when the user asks what the store sells, wants to browse by department, or when a keyword search needs narrowing to a category. Use the returned id values as category_id in search_products.';
+        return 'List this store\'s active category tree with URLs and product counts. '
+            . 'USE THIS to answer "what do you sell?" or "what is in this shop?", and to '
+            . 'narrow a vague request before searching. The returned id values are the '
+            . 'category_id argument for search_products.';
     }
 
     public function getInputSchema(): array
@@ -107,22 +110,5 @@ class ListCategoriesTool implements ToolInterface, ToolAnnotationsInterface
             ];
         }
         return $result;
-    }
-
-    /**
-     * MCP behavioural hints. These MUST match actual behaviour — Anthropic's
-     * Software Directory Policy requires descriptions and hints to reflect what
-     * the tool really does, and clients use destructiveHint to decide whether to
-     * ask the user for confirmation.
-     */
-    public function getAnnotations(): array
-    {
-        return [
-            'title'           => 'List categories',
-            'readOnlyHint'    => true,
-            'destructiveHint' => false,
-            'idempotentHint'  => true,
-            'openWorldHint'   => false,
-        ];
     }
 }

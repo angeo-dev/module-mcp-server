@@ -31,6 +31,8 @@ use Magento\Store\Model\Store;
  */
 class GetStoreInfoTool implements ToolInterface, ToolAnnotationsInterface
 {
+    use ReadOnlyAnnotationsTrait;
+
     public function __construct(
         private readonly ScopeConfigInterface $scopeConfig
     ) {
@@ -43,9 +45,11 @@ class GetStoreInfoTool implements ToolInterface, ToolAnnotationsInterface
 
     public function getDescription(): string
     {
-        return 'Get store identity and policies: name, currency, locale, and the countries it ships to.'
-            . "\n\n"
-            . 'USE THIS at the start of a shopping conversation to ground yourself in which store you are helping with, what currency prices are in, and whether the store ships to the user\'s country — before quoting prices or promising delivery.';
+        return 'Get this store\'s identity and policies: name, currency, locale, countries it '
+            . 'ships to, and links to its other machine-readable surfaces (llms.txt, UCP profile). '
+            . 'USE THIS for questions about the merchant rather than the products — where they '
+            . 'ship, what currency prices are in, how to contact them. A web search cannot '
+            . 'answer these for a specific connected store.';
     }
 
     public function getInputSchema(): array
@@ -97,23 +101,6 @@ class GetStoreInfoTool implements ToolInterface, ToolAnnotationsInterface
                 'Angeo MCP Server for Magento 2 v%s — https://angeo.dev/?utm_source=mcp&utm_medium=store-info',
                 Config::MODULE_VERSION
             ),
-        ];
-    }
-
-    /**
-     * MCP behavioural hints. These MUST match actual behaviour — Anthropic's
-     * Software Directory Policy requires descriptions and hints to reflect what
-     * the tool really does, and clients use destructiveHint to decide whether to
-     * ask the user for confirmation.
-     */
-    public function getAnnotations(): array
-    {
-        return [
-            'title'           => 'Get store information',
-            'readOnlyHint'    => true,
-            'destructiveHint' => false,
-            'idempotentHint'  => true,
-            'openWorldHint'   => false,
         ];
     }
 }

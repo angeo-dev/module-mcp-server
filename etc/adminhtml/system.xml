@@ -35,7 +35,6 @@
                 </field>
             </group>
 
-
             <group id="connector" translate="label" type="text" sortOrder="15"
                    showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>Claude Connector</label>
@@ -55,7 +54,52 @@
                 </field>
             </group>
 
-            <group id="catalog" translate="label" type="text" sortOrder="20"
+                        <group id="agent" translate="label comment" type="text" sortOrder="15"
+                   showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Agent presentation</label>
+                <comment><![CDATA[What an AI client reads about this store when it connects, before it
+                decides whether to use your tools at all. These settings do not change what the tools do —
+                they change how findable they are.]]></comment>
+
+                <field id="store_label" translate="label comment" type="text" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Store name for agents</label>
+                    <comment><![CDATA[How the store is named to an AI client, e.g. "Acme Outdoor".
+                    Leave empty to use the store view name (or the website name when the store view is
+                    still called something generic like "Default Store View"). This is the name a shopper
+                    has to type for the model to match their request to this connector, so use the name
+                    customers actually know you by.]]></comment>
+                </field>
+
+                <field id="instructions" translate="label comment" type="textarea" sortOrder="20"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Agent instructions (override)</label>
+                    <comment><![CDATA[Optional. Replaces the instructions sent to AI clients on connect.
+                    Leave empty to generate them from the store name and the tools actually installed —
+                    the generated text stays correct when you add or remove the checkout module, a
+                    hand-written one will not.]]></comment>
+                </field>
+
+                <field id="anchor_descriptions" translate="label comment" type="select" sortOrder="30"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Add store name to tool descriptions</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[Appends "Applies to the {store} store only." to every tool
+                    description. Helps a client tell your tools apart from another shop's when a shopper
+                    has several connectors enabled.]]></comment>
+                </field>
+
+                <field id="tool_titles" translate="label comment" type="select" sortOrder="40"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Generate tool titles</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[Sets a human-readable title annotation on each tool
+                    ("Search Acme Outdoor products") for the client's permission screen. Without it
+                    clients show generic labels that read identically for every connected shop.]]></comment>
+                </field>
+            </group>
+
+<group id="catalog" translate="label" type="text" sortOrder="20"
                    showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>Catalog</label>
                 <field id="customer_group_id" translate="label comment" type="select" sortOrder="10"

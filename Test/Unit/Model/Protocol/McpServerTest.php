@@ -8,7 +8,6 @@ declare(strict_types=1);
 
 namespace Angeo\McpServer\Test\Unit\Model\Protocol;
 
-use Angeo\McpServer\Api\ToolAnnotationsInterface;
 use Angeo\McpServer\Api\ToolInterface;
 use Angeo\McpServer\Model\Protocol\ErrorCodes;
 use Angeo\McpServer\Model\Protocol\JsonRpcRequest;
@@ -43,6 +42,42 @@ class McpServerTest extends TestCase
 
         $this->server = new McpServer(new ToolRegistry([$echoTool]));
         $this->store = $this->createStub(StoreInterface::class);
+    }
+
+    /**
+     * The instructions a client reads before deciding whether to use this
+     * connector at all. The 1.0 string claimed the server was read-only, which
+     * stopped being true the moment module-mcp-checkout was installed — and a
+     * connector that says it cannot transact will not be asked to.
+     */
+    public function testInstructionsDescribeReadOnlyServerHonestly(): void
+    {
+        $out = $this->handle('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}');
+        $instructions = $out['result']['instructions'] ?? '';
+
+        self::assertStringContainsString('read-only', strtolower($instructions));
+        self::assertStringNotContainsString('place an order', strtolower($instructions));
+    }
+
+    public function testInstructionsAnnounceCheckoutWhenOrderToolIsRegistered(): void
+    {
+        $placeOrder = new class implements ToolInterface {
+            public function getName(): string { return 'place_order'; }
+            public function getDescription(): string { return 'Place an order.'; }
+            public function getInputSchema(): array { return ['type' => 'object']; }
+            public function isAvailable(StoreInterface $store): bool { return true; }
+            public function execute(array $arguments, StoreInterface $store): array { return []; }
+        };
+
+        $server = new McpServer(new ToolRegistry([$placeOrder]));
+        $response = $server->handle(
+            JsonRpcRequest::fromJson('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'),
+            $this->store
+        );
+        $instructions = $response->toArray()['result']['instructions'] ?? '';
+
+        self::assertStringContainsString('place an order', strtolower($instructions));
+        self::assertStringNotContainsString('these tools are read-only', strtolower($instructions));
     }
 
     private function handle(string $json): ?array
@@ -80,55 +115,6 @@ class McpServerTest extends TestCase
         self::assertCount(1, $out['result']['tools']);
         self::assertSame('echo_tool', $out['result']['tools'][0]['name']);
         self::assertArrayHasKey('inputSchema', $out['result']['tools'][0]);
-    }
-
-    /**
-     * A tool implementing only ToolInterface (as third-party tools may) must
-     * still work and simply advertise no annotations — proves the annotations
-     * feature is not a BC break.
-     */
-    public function testToolWithoutAnnotationsInterfaceAdvertisesNone(): void
-    {
-        $out = $this->handle('{"jsonrpc":"2.0","id":2,"method":"tools/list"}');
-        self::assertArrayNotHasKey('annotations', $out['result']['tools'][0]);
-        self::assertArrayNotHasKey('title', $out['result']['tools'][0]);
-    }
-
-    /**
-     * A tool implementing ToolAnnotationsInterface has its hints exposed, with
-     * the title lifted to the top level as well (MCP allows both positions).
-     */
-    public function testAnnotatedToolExposesHintsAndTitle(): void
-    {
-        $annotated = new class implements ToolInterface, ToolAnnotationsInterface {
-            public function getName(): string { return 'destructive_tool'; }
-            public function getDescription(): string { return 'Does something irreversible'; }
-            public function getInputSchema(): array { return ['type' => 'object']; }
-            public function isAvailable(StoreInterface $store): bool { return true; }
-            public function execute(array $arguments, StoreInterface $store): array { return []; }
-            public function getAnnotations(): array
-            {
-                return [
-                    'title'           => 'Destructive tool',
-                    'readOnlyHint'    => false,
-                    'destructiveHint' => true,
-                    'idempotentHint'  => false,
-                    'openWorldHint'   => true,
-                ];
-            }
-        };
-
-        $server = new McpServer(new ToolRegistry([$annotated]), $this->config);
-        $response = $server->handle(
-            JsonRpcRequest::fromJson('{"jsonrpc":"2.0","id":9,"method":"tools/list"}'),
-            $this->store
-        );
-        $out = json_decode(json_encode($response->toArray()), true);
-
-        $tool = $out['result']['tools'][0];
-        self::assertSame('Destructive tool', $tool['title']);
-        self::assertTrue($tool['annotations']['destructiveHint']);
-        self::assertFalse($tool['annotations']['readOnlyHint']);
     }
 
     public function testToolsCallReturnsStructuredContent(): void

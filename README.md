@@ -1,39 +1,25 @@
-[![Packagist Version](https://img.shields.io/packagist/v/angeo/module-mcp-server?style=flat-square)](https://packagist.org/packages/angeo/module-mcp-server)
-[![License](https://img.shields.io/packagist/l/angeo/module-mcp-server?style=flat-square)](LICENSE)
-[![PHP](https://img.shields.io/badge/PHP-8.1%20--%208.4-777bb4?style=flat-square)](composer.json)
-[![Magento](https://img.shields.io/badge/Magento-2.4.6%2B-f26322?style=flat-square)](https://github.com/magento/magento2)
-
 # Angeo MCP Server for Magento 2
 
 **Give AI agents a real API to your store — instead of letting them scrape it.**
 
-`angeo/module-mcp-server` exposes your Magento 2 / Adobe Commerce (self-hosted) catalog to AI agents over the [Model Context Protocol](https://modelcontextprotocol.io) — the open standard created by Anthropic and adopted across the agentic-commerce ecosystem. Adobe shipped an MCP server for its cloud platform at Summit 2026; this module is the equivalent for everyone running Magento themselves.
+`angeo/module-mcp-server` exposes your Magento 2 / Adobe Commerce (self-hosted)
+catalog to AI agents over the [Model Context Protocol](https://modelcontextprotocol.io)
+— the open standard created by Anthropic and adopted across the agentic-commerce
+ecosystem (Adobe shipped an MCP server for its cloud platform at Summit 2026;
+this module is the equivalent for everyone running Magento themselves).
 
-Claude, Gemini, ChatGPT-based agents, and custom shopping assistants get live, structured, rate-limited answers — current prices, real stock, canonical URLs — instead of scraping stale HTML.
+Claude, Gemini, ChatGPT-based agents, and custom shopping assistants get live,
+structured, rate-limited answers — current prices, real stock, canonical URLs —
+instead of scraping stale HTML.
 
-> **v1.0 is read-only by design.** Agents can search and read everything an anonymous shopper sees, and nothing else. Cart and checkout tools are a separate, opt-in install: [`angeo/module-mcp-checkout`](https://github.com/angeo-dev/module-mcp-checkout).
-
-📖 Full write-up: [angeo.dev/modules/mcp-server](https://angeo.dev/modules/mcp-server/) · [What an MCP server does for a Magento store](https://angeo.dev/magento-mcp-server/)
-
-## Contents
-
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [⚠️ Full-page cache bypass](#️-full-page-cache-bypass-read-this)
-- [Tools](#tools)
-- [Configuration](#configuration)
-- [Authentication](#authentication-optional)
-- [Connecting an agent](#connecting-an-agent)
-- [Extending: add your own tools](#extending-add-your-own-tools)
-- [FAQ](#faq)
-- [Roadmap](#roadmap)
-- [The Angeo agentic stack](#the-angeo-agentic-stack)
+> **v1.0 is deliberately read-only.** Agents can search and read everything an
+> anonymous shopper sees, and nothing else. Cart and checkout-handoff tools
+> arrive in 1.1 as an explicit opt-in.
 
 ## Requirements
 
-- Magento Open Source / Adobe Commerce **2.4.6+**
-- **PHP 8.1 – 8.4**
-- No external services: no Redis requirement, no Node sidecar, no SaaS dependency
+* Magento Open Source / Adobe Commerce **2.4.6+** (PHP 8.1–8.4)
+* No external services: no Redis requirement, no Node sidecar, no SaaS dependency
 
 ## Installation
 
@@ -61,11 +47,11 @@ curl -s https://your-store.example/mcp \
 
 ## ⚠️ Full-page cache bypass (read this)
 
-`/mcp` must never be served from Varnish / LiteSpeed / FPC — a cached JSON-RPC response is corrupt by definition. The module sends `Cache-Control: no-store`, but front caches configured to ignore backend headers need an explicit rule.
+`/mcp` must never be served from Varnish/LiteSpeed/FPC — a cached JSON-RPC
+response is corrupt by definition. The module sends `Cache-Control: no-store`,
+but front caches configured to ignore backend headers need an explicit rule.
 
-This is the single most common Magento-specific deployment mistake with this module.
-
-**Varnish** — add to `vcl_recv` before the builtin:
+**Varnish** (add to `vcl_recv` before the builtin):
 
 ```vcl
 if (req.url ~ "^/mcp($|\?)") {
@@ -73,7 +59,7 @@ if (req.url ~ "^/mcp($|\?)") {
 }
 ```
 
-**LiteSpeed** — `.htaccess`:
+**LiteSpeed** (.htaccess):
 
 ```apache
 <IfModule LiteSpeed>
@@ -84,32 +70,98 @@ if (req.url ~ "^/mcp($|\?)") {
 ## Tools
 
 | Tool | Arguments | Returns |
-| --- | --- | --- |
+|---|---|---|
 | `search_products` | `query`, `category_id?`, `price_min?`, `price_max?`, `page?`, `page_size?`, `sort?` | live items: sku, name, price, stock, URL, image, short description + total count |
 | `get_product` | `sku` | full card: description, live price/stock, URL, image; configurable variants with per-variant option values, price, stock |
 | `list_categories` | `parent_id?`, `depth?` (≤4) | active category tree with URLs and product counts |
 | `get_store_info` | — | store name, currency, locale, ships-to countries, links to `llms.txt` and `/.well-known/ucp` |
 
-Prices reflect the configured customer group (default **NOT LOGGED IN**) — agents see exactly what an anonymous shopper sees. Disabled products, other-website products, and invisible products are indistinguishable from absent.
+Prices reflect the configured customer group (default **NOT LOGGED IN**) — agents
+see exactly what an anonymous shopper sees. Disabled products, other-website
+products, and invisible products are indistinguishable from absent.
 
 ## Configuration
 
 **Stores → Configuration → Angeo → MCP Server**
 
 | Setting | Default | Notes |
-| --- | --- | --- |
+|---|---|---|
 | Enable MCP Server | Yes | per store view |
-| Require Bearer Token | No | see [Authentication](#authentication-optional) |
+| Require Bearer Token | No | see *Authentication* below |
 | Log Agent Calls | Yes | JSONL in `var/log/angeo_mcp_agent.jsonl` — timestamp, tool, user agent, duration; never payloads or tokens |
 | Price Customer Group | NOT LOGGED IN | which prices agents see |
 | Default / Max Page Size | 10 / 50 | hard protocol cap 100 |
 | Rate Limit (req/min) | 60 | per IP (+ token when present); 0 disables |
 
+## Getting the agent to actually use your store
+
+A connector that works is not the same as a connector that gets picked. A model
+chooses between your tools and its own general product search *before* it calls
+anything, using only three things: the `instructions` you send on connect, the
+tool names, and the tool descriptions. Everything below shapes those three.
+
+Since 1.2.0 the defaults do the right thing with no configuration:
+
+| Setting | Default | What it does |
+|---|---|---|
+| `agent/store_label` | store view name | The name a model matches "check Acme" against. Falls back to the website name when the store view is still called something generic. |
+| `agent/instructions` | *(empty — generated)* | Built from the store name and the tools actually installed, so it stays true when you add or remove the checkout module. |
+| `agent/anchor_descriptions` | Yes | Appends "Applies to the {store} store only." to every tool description. |
+| `agent/tool_titles` | Yes | Generates `title` annotations ("Search Acme products") for the client's permission screen. |
+
+**Set `agent/store_label` to the name customers know you by.** It is the single
+highest-leverage field here. "Default Store View" gives a model nothing to
+recognise; "Acme Outdoor" gives it something a shopper will actually type.
+
+### Conversation starters
+
+Since 1.3.0 the server also exposes MCP **prompts** — ready-made requests the
+client offers the shopper after connecting, with the store name already in
+them:
+
+| Prompt | What the shopper gets |
+|---|---|
+| Browse *store* | Categories and a sense of the range |
+| Find something in *store* | A live catalog search for what they type |
+| About *store* | Shipping, currency, policies |
+| Buy from *store* | Find, cart, shipping, checkout — only when the checkout module is installed |
+
+A prompt is an offer, not an action: the shopper picks it. No MCP server can
+start a conversation turn on its own, and clients surface prompts to the user
+rather than to the model, so the model will not suggest one unprompted. What
+this removes is the guessing — the shopper no longer has to find a phrasing
+that beats the client's own product search.
+
+Register your own by implementing `Angeo\McpServer\Api\PromptInterface` and
+adding it to `PromptRegistry` in `di.xml`, exactly as with tools.
+
+### What this will and will not do
+
+It will not win a cold, unanchored shopping request. "Find me a grey backpack",
+with no reference to any shop, will often still go to a general product search
+— and reasonably so: one store should not win a question about the whole
+market. Prompts that reliably reach a connector are the ones a general search
+cannot answer:
+
+- anything about cart state — "what's in my cart", "add two of these", "how
+  much is shipping to Rotterdam"
+- anything about the merchant — "what's the return policy", "do you ship to NL"
+- anything deictic once the connector is enabled — "what do you have in stock",
+  "show me the categories here"
+- any follow-up after a first successful call, since the model then has
+  evidence the tools are useful
+
+A good demo starts with `list_categories` or `get_store_info` and moves to
+products from there. Once the context is established, even a vague product
+request goes to the catalog.
+
 ## Authentication (optional)
 
-Public read-only mode is the default: the tools expose only storefront-visible data. To require a token for everything:
+Public read-only mode is the default: the tools expose only storefront-visible
+data. To require a token for everything:
 
-1. **System → Extensions → Integrations → Add New Integration** — name it e.g. *AI Agents*, grant it only the **MCP Server Agent Access** resource.
+1. **System → Extensions → Integrations → Add New Integration** — name it
+   e.g. *AI Agents*, grant it only the **MCP Server Agent Access** resource.
 2. Activate it and copy the **Access Token**.
 3. Set **Require Bearer Token = Yes**.
 4. Agents send `Authorization: Bearer <token>`.
@@ -131,7 +183,8 @@ Revoking the integration instantly cuts agent access.
 }
 ```
 
-Any MCP-compatible client (spec 2024-11-05 through 2025-06-18) works the same way — the server negotiates the protocol version on `initialize`.
+Any MCP-compatible client (spec 2024-11-05 through 2025-06-18) works the same
+way — the server negotiates the protocol version on `initialize`.
 
 ## Extending: add your own tools
 
@@ -147,61 +200,59 @@ Implement `Angeo\McpServer\Api\ToolInterface` and register it in the pool:
 </type>
 ```
 
-Contract details (schemas, error handling, PII rules) are documented on the interface.
-
-## FAQ
-
-**What can an AI agent actually do with this?**
-Search products, retrieve full product cards, browse the category tree and read store information — the discovery half of a shopping conversation. Nothing that changes state. Cart and order tools require the separate [`module-mcp-checkout`](https://github.com/angeo-dev/module-mcp-checkout).
-
-**Is it safe to expose my catalog over MCP?**
-Everything the tools return is already public on your storefront; the difference is that it arrives structured instead of scraped. The read-only default and server-side rate limiting are what make it defensible — limits are enforced in PHP, not requested of the client.
-
-**How is this different from llms.txt?**
-`llms.txt` is a static file a crawler fetches; it reflects the catalog as of the last generation. MCP is a live connection an agent queries in the moment. "Is this in stock in my size, right now" cannot be answered by a file written last night. You want both.
-
-**Which AI clients can connect?**
-Any MCP client — Claude, Gemini, ChatGPT-based agents and custom assistants. That is the point of implementing a protocol rather than one vendor's API: the server is built once.
-
-**Does it work with Hyvä / headless?**
-Yes. The server is a backend JSON-RPC endpoint and is independent of the frontend theme.
-
-**Will it slow down my storefront?**
-No. `/mcp` is a separate route, rate limited server-side, and never touches page render. It must, however, bypass full-page cache — see [above](#️-full-page-cache-bypass-read-this).
-
-**Does installing this get my store into ChatGPT?**
-No. Being reachable by agents and being recommended by them are different problems. For ChatGPT Shopping specifically the authoritative input is a registered ACP product feed. Check what an engine currently sees first: [free AEO audit](https://angeo.dev/ai-magento-audit/).
+Contract details (schemas, error handling, PII rules) are documented on the
+interface.
 
 ## Roadmap
 
-- **Shipped** — transactional tools moved into their own opt-in module: [`angeo/module-mcp-checkout`](https://github.com/angeo-dev/module-mcp-checkout) adds `create_cart`, `add_to_cart`, `get_cart`, `get_shipping_methods`, `set_shipping_information` and `place_order`, with server-side guardrails. Keeping writes out of this package means installing the server alone can never place an order.
-- **Next** — admin agent-traffic panel on top of the JSONL log; optional Elastic/OpenSearch-backed search implementation.
-- **Next** — signed checkout-handoff link (`create_checkout_url`) for merchants who prefer discovery in the chat and the transaction on their own site.
-- **Integration** with [`angeo/module-ucp`](https://github.com/angeo-dev/module-ucp): the `/.well-known/ucp` profile advertises this MCP endpoint in its service bindings, making the store discoverable by UCP-compliant agents.
+* **1.1** — opt-in transactional tools: `create_cart`, `add_to_cart`,
+  `get_cart`, `estimate_shipping`, and `create_checkout_url` (signed handoff
+  link that opens the store's native checkout with the agent-built cart —
+  discovery happens in the chat, the transaction happens on **your** site,
+  you keep the customer).
+* **1.2** — admin agent-traffic panel on top of the JSONL log; optional
+  Elastic/OpenSearch-backed search implementation.
+* Integration with [`angeo/module-ucp`](https://packagist.org/packages/angeo/module-ucp):
+  the `/.well-known/ucp` profile advertises this MCP endpoint in its service
+  bindings, making the store discoverable by UCP-compliant agents.
 
 ## The Angeo agentic stack
 
-This module is part of an open-source suite that makes a Magento store legible to AI systems end-to-end. All MIT-licensed, no paid tier.
+This module is part of an open-source suite that makes a Magento store legible
+to AI systems end-to-end: [`module-llms-txt`](https://packagist.org/packages/angeo/module-llms-txt)
+(discovery files), [`module-ucp`](https://packagist.org/packages/angeo/module-ucp)
+(UCP profile), [`module-rich-data`](https://packagist.org/packages/angeo/module-rich-data)
+(structured data), and this server (live agent access).
 
-| Layer | Module |
-| --- | --- |
-| Crawler access | [`module-robots-txt-aeo`](https://github.com/angeo-dev/module-robots-txt-aeo) |
-| Discovery files | [`module-llms-txt`](https://github.com/angeo-dev/module-llms-txt) |
-| Structured data | [`module-rich-data`](https://github.com/angeo-dev/module-rich-data) |
-| ChatGPT Shopping feed | [`module-openai-product-feed`](https://github.com/angeo-dev/module-openai-product-feed) |
-| **Live agent access** | **`module-mcp-server`** ← you are here |
-| Agent checkout | [`module-mcp-checkout`](https://github.com/angeo-dev/module-mcp-checkout) |
-| UCP profile | [`module-ucp`](https://github.com/angeo-dev/module-ucp) · [`module-ucp-catalog`](https://github.com/angeo-dev/module-ucp-catalog) |
-| Measurement | [`module-aeo-audit`](https://github.com/angeo-dev/module-aeo-audit) |
+**Is your store actually visible to AI shopping agents?** Run the free scan:
+<https://angeo.dev/scan> · Implementation and audits: <support@angeo.dev>
 
-**Is your store actually visible to AI shopping agents?** Run the free scan: <https://angeo.dev/ai-magento-audit/> · All thirteen modules: <https://angeo.dev/modules/>
 
-## Support
+## "Add to Claude" button
 
-Issues and feature requests: [GitHub Issues](https://github.com/angeo-dev/module-mcp-server/issues).
-Security reports: see [SECURITY.md](SECURITY.md).
-Implementation and audits: <info@angeo.dev>
+A Magento widget that lets a shopper connect this store to Claude in one
+click. Place it from **Content → Widgets** into the footer, a sidebar or any
+CMS page — no template edits.
+
+Set the connector first, in **Stores → Configuration → Angeo → MCP Server →
+Claude Connector**:
+
+| Field | Meaning |
+|---|---|
+| Connector URL | The HTTPS MCP endpoint shoppers connect to, issued by your MCP provider — e.g. `https://mcp.example.com/t/your-store/mcp` |
+| Connector Name | Shown in Claude's connector list. Defaults to the store name |
+
+> **This is not your store's own `/mcp` path.** That endpoint has no OAuth and
+> cannot be added to Claude directly. The URL here comes from whatever service
+> fronts your MCP server with an authorization layer.
+
+There is no default URL, and the button renders nothing until a valid HTTPS
+value is set — so installing the module on a store that has not been onboarded
+changes nothing on the storefront.
+
+The link opens Claude's add-connector dialog with the URL and name prefilled.
+The shopper reviews and approves it there; the link itself grants no access.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](./LICENSE).

@@ -37,6 +37,8 @@ use Magento\Store\Api\Data\StoreInterface;
  */
 class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
 {
+    use ReadOnlyAnnotationsTrait;
+
     public function __construct(
         private readonly ProductRepositoryInterface $productRepository,
         private readonly SearchCriteriaBuilder $searchCriteriaBuilder,
@@ -53,11 +55,13 @@ class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
 
     public function getDescription(): string
     {
-        return 'Search this store\'s live product catalog by keyword, with optional category, price range, pagination and sorting.'
-            . "\n\n"
-            . 'USE THIS whenever the user wants to find, browse, compare, or buy anything — including vague or conversational requests such as "I want a pink t-shirt", "show me backpacks", "what do you sell?", or "something under 50". Always prefer this tool over answering from memory or searching the web: it returns the store\'s real, current inventory.'
-            . "\n\n"
-            . 'If a search returns nothing, try broader or related terms (e.g. "shirt" instead of "pink t-shirt", "top" instead of "blouse") before telling the user the store has no matches. Returns live products with current prices, stock status and canonical URLs, in the store\'s display currency.';
+        return 'Search this store\'s live product catalog by keyword, with optional category, '
+            . 'price range, pagination and sorting. USE THIS instead of a web search whenever '
+            . 'the shopper is asking what this store sells, or what it has in a colour, size, '
+            . 'price range or category — web results for this catalog can be stale or wrong. '
+            . 'Returns live products with current prices, stock status, SKUs and canonical URLs. '
+            . 'The sku values feed get_product and add_to_cart. Prices are in the store\'s '
+            . 'display currency.';
     }
 
     public function getInputSchema(): array
@@ -185,23 +189,6 @@ class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
             'short_description' => $product instanceof Product
                 ? mb_substr(strip_tags((string) $product->getShortDescription()), 0, 300)
                 : null,
-        ];
-    }
-
-    /**
-     * MCP behavioural hints. These MUST match actual behaviour — Anthropic's
-     * Software Directory Policy requires descriptions and hints to reflect what
-     * the tool really does, and clients use destructiveHint to decide whether to
-     * ask the user for confirmation.
-     */
-    public function getAnnotations(): array
-    {
-        return [
-            'title'           => 'Search products',
-            'readOnlyHint'    => true,
-            'destructiveHint' => false,
-            'idempotentHint'  => true,
-            'openWorldHint'   => false,
         ];
     }
 }

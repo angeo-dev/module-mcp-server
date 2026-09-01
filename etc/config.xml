@@ -11,6 +11,15 @@
                 <require_token>0</require_token>
                 <log_calls>1</log_calls>
             </general>
+            <agent>
+                <!-- Empty: generated from the store name and installed tools. -->
+                <instructions></instructions>
+                <store_label></store_label>
+                <!-- On by default. A connector nobody can find is a connector
+                     nobody uses, and both settings are presentation-only. -->
+                <anchor_descriptions>1</anchor_descriptions>
+                <tool_titles>1</tool_titles>
+            </agent>
             <catalog>
                 <customer_group_id>0</customer_group_id>
                 <default_page_size>10</default_page_size>

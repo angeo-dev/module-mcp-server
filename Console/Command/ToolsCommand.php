@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Angeo\McpServer\Console\Command;
 
+use Angeo\McpServer\Model\Config;
 use Angeo\McpServer\Model\Protocol\JsonRpcRequest;
 use Angeo\McpServer\Model\Protocol\McpServer;
 use Magento\Framework\App\Area;
@@ -32,7 +33,8 @@ class ToolsCommand extends Command
     public function __construct(
         private readonly McpServer $mcpServer,
         private readonly StoreManagerInterface $storeManager,
-        private readonly State $appState
+        private readonly State $appState,
+        private readonly ?Config $config = null
     ) {
         parent::__construct();
     }
@@ -58,6 +60,22 @@ class ToolsCommand extends Command
         $store = $storeCode !== null
             ? $this->storeManager->getStore($storeCode)
             : $this->storeManager->getDefaultStoreView();
+
+        // A store still called "Default Store View" gives an agent nothing to
+        // recognise, so the label falls back to empty and the instructions say
+        // "this store". That is survivable but weak, and easy to miss — say so
+        // here rather than letting it pass silently.
+        if ($this->config !== null && $this->config->getStoreLabel($store) === '') {
+            $output->writeln(
+                '<comment>No usable store name for agents: the store view, group and website'
+                . ' are all still at their Magento defaults.</comment>'
+            );
+            $output->writeln(
+                '<comment>Set Stores > Configuration > Angeo > MCP Server > Agent presentation'
+                . ' > "Store name for agents" to the name customers know you by. It is what a'
+                . ' model matches a shopper\'s request against.</comment>'
+            );
+        }
 
         $toolName = $input->getArgument('tool');
         $rpc = $toolName === null

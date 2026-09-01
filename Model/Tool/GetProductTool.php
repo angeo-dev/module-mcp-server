@@ -30,6 +30,8 @@ use Magento\Store\Api\Data\StoreInterface;
  */
 class GetProductTool implements ToolInterface, ToolAnnotationsInterface
 {
+    use ReadOnlyAnnotationsTrait;
+
     private const MAX_VARIANTS = 100;
 
     public function __construct(
@@ -46,9 +48,11 @@ class GetProductTool implements ToolInterface, ToolAnnotationsInterface
 
     public function getDescription(): string
     {
-        return 'Get the full product card for one SKU: description, attributes, live price and stock, canonical URL, and — for configurable products — every purchasable variant with its option values (size, colour, and so on).'
-            . "\n\n"
-            . 'USE THIS whenever the user asks about a specific product, wants more detail on something from search results, or is choosing between variants. Call it before adding a configurable product to the cart, so you know which variant SKU to add.';
+        return 'Get the full product card for one SKU from this store: description, attributes, '
+            . 'live price and stock, canonical URL, and — for configurable products — the list of '
+            . 'purchasable variants with their option values. USE THIS rather than quoting a price '
+            . 'or availability from memory or from a web page: only this call reflects what the '
+            . 'shopper will actually be charged.';
     }
 
     public function getInputSchema(): array
@@ -156,22 +160,5 @@ class GetProductTool implements ToolInterface, ToolAnnotationsInterface
         }
 
         return $variants;
-    }
-
-    /**
-     * MCP behavioural hints. These MUST match actual behaviour — Anthropic's
-     * Software Directory Policy requires descriptions and hints to reflect what
-     * the tool really does, and clients use destructiveHint to decide whether to
-     * ask the user for confirmation.
-     */
-    public function getAnnotations(): array
-    {
-        return [
-            'title'           => 'Get product details',
-            'readOnlyHint'    => true,
-            'destructiveHint' => false,
-            'idempotentHint'  => true,
-            'openWorldHint'   => false,
-        ];
     }
 }

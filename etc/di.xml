@@ -14,6 +14,107 @@
         </arguments>
     </type>
 
+    <!-- Config is an OPTIONAL constructor argument on McpServer, so the
+         protocol layer stays unit-testable without the framework. Magento does
+         NOT auto-wire optional arguments: without this explicit entry the
+         parameter receives its default null, and every agent-presentation
+         setting (store label, generated instructions, description anchoring,
+         tool titles) silently falls back to the pre-1.2.0 behaviour. The
+         symptom is subtle — the connector works, it is just harder to find. -->
+
+    <!-- Conversation starters (MCP `prompts` capability).
+
+         These exist because a shopper who has just connected a store connector
+         has to guess a phrasing that makes the model reach for it: an
+         unanchored "find me a grey backpack" competes with the client's own
+         product search and usually loses. A prompt supplies the phrasing, with
+         the store's name already in it.
+
+         They are offers, not actions: the shopper picks one from the client's
+         UI. No MCP server can start a conversation turn by itself. -->
+    <virtualType name="Angeo\McpServer\Model\Prompt\BrowseCatalogPrompt"
+                 type="Angeo\McpServer\Model\Prompt\StorePrompt">
+        <arguments>
+            <argument name="name" xsi:type="string">browse_catalog</argument>
+            <argument name="title" xsi:type="string">Browse %s</argument>
+            <argument name="description" xsi:type="string">See what %s sells, by category</argument>
+            <argument name="template" xsi:type="string">What does %s sell? List the categories and give me a sense of the range.</argument>
+        </arguments>
+    </virtualType>
+
+    <virtualType name="Angeo\McpServer\Model\Prompt\FindProductPrompt"
+                 type="Angeo\McpServer\Model\Prompt\StorePrompt">
+        <arguments>
+            <argument name="name" xsi:type="string">find_product</argument>
+            <argument name="title" xsi:type="string">Find something in %s</argument>
+            <argument name="description" xsi:type="string">Search the live %s catalog</argument>
+            <argument name="template" xsi:type="string">Search %s for {query}. Show me what is in stock with current prices.</argument>
+            <argument name="arguments" xsi:type="array">
+                <item name="query" xsi:type="array">
+                    <item name="name" xsi:type="string">query</item>
+                    <item name="description" xsi:type="string">What you are looking for, e.g. "grey backpack"</item>
+                    <item name="required" xsi:type="boolean">true</item>
+                </item>
+            </argument>
+        </arguments>
+    </virtualType>
+
+    <virtualType name="Angeo\McpServer\Model\Prompt\StoreInfoPrompt"
+                 type="Angeo\McpServer\Model\Prompt\StorePrompt">
+        <arguments>
+            <argument name="name" xsi:type="string">store_info</argument>
+            <argument name="title" xsi:type="string">About %s</argument>
+            <argument name="description" xsi:type="string">Shipping, currency and policies</argument>
+            <argument name="template" xsi:type="string">Tell me about %s: where it ships, what currency prices are in, and its policies.</argument>
+        </arguments>
+    </virtualType>
+
+    <!-- Offered only when the checkout module is installed; a "buy this"
+         starter on a read-only store is a promise the tools cannot keep. -->
+    <virtualType name="Angeo\McpServer\Model\Prompt\BuyPrompt"
+                 type="Angeo\McpServer\Model\Prompt\StorePrompt">
+        <arguments>
+            <argument name="name" xsi:type="string">buy_product</argument>
+            <argument name="title" xsi:type="string">Buy from %s</argument>
+            <argument name="description" xsi:type="string">Find an item, build a cart and check out</argument>
+            <argument name="template" xsi:type="string">I want to buy {query} from %s. Find it, add it to a cart, and walk me through shipping and checkout. Ask me for anything you need — do not invent my details.</argument>
+            <argument name="arguments" xsi:type="array">
+                <item name="query" xsi:type="array">
+                    <item name="name" xsi:type="string">query</item>
+                    <item name="description" xsi:type="string">What you want to buy</item>
+                    <item name="required" xsi:type="boolean">true</item>
+                </item>
+            </argument>
+            <argument name="requiresTools" xsi:type="array">
+                <item name="place_order" xsi:type="string">place_order</item>
+            </argument>
+        </arguments>
+    </virtualType>
+
+    <type name="Angeo\McpServer\Model\Prompt\PromptRegistry">
+        <arguments>
+            <argument name="prompts" xsi:type="array">
+                <item name="browse_catalog" xsi:type="object">Angeo\McpServer\Model\Prompt\BrowseCatalogPrompt</item>
+                <item name="find_product" xsi:type="object">Angeo\McpServer\Model\Prompt\FindProductPrompt</item>
+                <item name="store_info" xsi:type="object">Angeo\McpServer\Model\Prompt\StoreInfoPrompt</item>
+                <item name="buy_product" xsi:type="object">Angeo\McpServer\Model\Prompt\BuyPrompt</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <type name="Angeo\McpServer\Model\Protocol\McpServer">
+        <arguments>
+            <argument name="config" xsi:type="object">Angeo\McpServer\Model\Config</argument>
+            <argument name="promptRegistry" xsi:type="object">Angeo\McpServer\Model\Prompt\PromptRegistry</argument>
+        </arguments>
+    </type>
+
+    <type name="Angeo\McpServer\Console\Command\ToolsCommand">
+        <arguments>
+            <argument name="config" xsi:type="object">Angeo\McpServer\Model\Config</argument>
+        </arguments>
+    </type>
+
     <type name="Magento\Framework\Console\CommandList">
         <arguments>
             <argument name="commands" xsi:type="array">
