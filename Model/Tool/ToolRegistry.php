@@ -36,6 +36,13 @@ class ToolRegistry
                 $this->byName[$tool->getName()] = $tool;
             }
         }
+
+        // tools/list must be byte-identical between requests for the same
+        // authorization: clients cache the catalog and hosts cache the prompt
+        // that contains it. Insertion order here follows di.xml merge order,
+        // which changes when a sibling module (mcp-checkout) is added or
+        // removed, so the catalog is sorted by name instead.
+        ksort($this->byName);
     }
 
     /** @return ToolInterface[] */

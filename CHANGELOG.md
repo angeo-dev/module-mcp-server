@@ -6,6 +6,73 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.1.0] - 2026-09-05
+
+A tool-contract release. Nothing in the handler layer changed; what changed is
+everything a model and a Connector Directory reviewer actually read.
+
+### Fixed
+
+- **Reported server version.** `Config::MODULE_VERSION` and
+  `McpServer::SERVER_VERSION` were still `1.3.0` at the 2.0.0 tag, so
+  `initialize` announced a version that had never been published and
+  `get_store_info` echoed it back. Both now track the package version.
+
+### Changed
+
+- **Tool descriptions no longer argue against other tools.** Three of the four
+  descriptions told the model to prefer this connector over a web search, and
+  `buildInstructions` repeated the argument in a paragraph of its own.
+  Directory review treats "prefer my tool over unrelated tools" as a
+  prompt-injection pattern, so the whole class of phrasing is gone.
+
+  What replaces it is the boundary between *these* tools: `search_products`
+  says to call it when no sku is known, `get_product` says it needs an exact
+  sku and to search first without one. That distinction is what actually
+  reduces selection variance — the connector never won a cold "find me a grey
+  backpack" and was never going to. One store should not answer a question
+  about the whole market.
+
+- **`served_by` carries no marketing.** The field used to return an angeo.dev
+  URL with UTM parameters, in a result the model reads. Promotional copy in a
+  tool result is a review rejection, and `serverInfo` already carries the same
+  name and version through the channel meant for it. The key stays, factual.
+
+- **`title` is published at the top level** of each tool descriptor, where the
+  current tool model puts it and where review expects it, in addition to
+  `annotations.title` for older clients.
+
+- **`tools/list` is ordered by tool name.** Insertion order followed `di.xml`
+  merge order, which shifts when a sibling module such as `mcp-checkout` is
+  installed or removed. Clients cache the catalog and hosts cache the prompt
+  containing it, so the same authorization must produce the same bytes.
+
+### Added
+
+- **Data fence around tool results.** Product names, descriptions and category
+  names are merchant-editable content this server does not control, and they
+  went to the model as bare prose. The text channel of every result is now
+  wrapped in `<store_data>` tags, with a notice in `instructions` saying that
+  an instruction found inside them is something to report, never something to
+  follow. A literal closing tag in a payload is neutralised, so the fence
+  cannot be torn open from a product description. `structuredContent` is left
+  unfenced: it is parsed, not read.
+
+  The pattern is taken from Anthropic's Claude Commerce Agents blueprint
+  (Apache 2.0, released 2026-09-02), whose reference storefront server fences
+  every catalog, review, policy and order result the same way.
+
+- **`Test\Unit\Model\Tool\ToolContractTest`** — six checks across all four
+  tools: name length and character set, banned steering and promotional
+  phrases, description substance, a description or constraint on every input
+  field, coherent safety annotations, and unique names. Tools are built with
+  `newInstanceWithoutConstructor()`, so the check needs no Magento wiring and
+  always runs.
+
+  This is the test that would have caught the descriptions above. A handler
+  bug shows up the first time you call the tool; a description that fails
+  review ships silently and costs a submission cycle.
+
 ## [2.0.0] - 2026-08-31
 
 First release since 1.0.1. Versions 1.1.0, 1.2.0, 1.2.1 and 1.3.0 were built

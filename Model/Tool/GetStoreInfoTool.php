@@ -46,10 +46,9 @@ class GetStoreInfoTool implements ToolInterface, ToolAnnotationsInterface
     public function getDescription(): string
     {
         return 'Get this store\'s identity and policies: name, currency, locale, countries it '
-            . 'ships to, and links to its other machine-readable surfaces (llms.txt, UCP profile). '
-            . 'USE THIS for questions about the merchant rather than the products — where they '
-            . 'ship, what currency prices are in, how to contact them. A web search cannot '
-            . 'answer these for a specific connected store.';
+            . 'ships to, and links to its machine-readable surfaces (llms.txt, UCP profile). '
+            . 'Takes no arguments. Use this for questions about the merchant — where they ship, '
+            . 'what currency prices are in — rather than about individual products.';
     }
 
     public function getInputSchema(): array
@@ -97,10 +96,11 @@ class GetStoreInfoTool implements ToolInterface, ToolAnnotationsInterface
                 'llms_txt'    => $baseUrl !== '' ? $baseUrl . '/llms.txt' : null,
                 'ucp_profile' => $baseUrl !== '' ? $baseUrl . '/.well-known/ucp' : null,
             ],
-            'served_by'        => sprintf(
-                'Angeo MCP Server for Magento 2 v%s — https://angeo.dev/?utm_source=mcp&utm_medium=store-info',
-                Config::MODULE_VERSION
-            ),
+            // Factual server-software metadata only. The marketing URL that used to
+            // live here is promotional copy in a model-visible result, which the
+            // Connector Directory review rejects; serverInfo already carries the
+            // same name and version through the proper channel.
+            'served_by'        => sprintf('Angeo MCP Server for Magento 2 v%s', Config::MODULE_VERSION),
         ];
     }
 }

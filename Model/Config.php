@@ -20,7 +20,7 @@ use Magento\Store\Model\ScopeInterface;
  */
 class Config
 {
-    public const MODULE_VERSION = '1.3.0';
+    public const MODULE_VERSION = '2.1.0';
 
     public const XML_PATH_ENABLED        = 'angeo_mcp/general/enabled';
     public const XML_PATH_REQUIRE_TOKEN  = 'angeo_mcp/general/require_token';

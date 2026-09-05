@@ -41,10 +41,10 @@ class ListCategoriesTool implements ToolInterface, ToolAnnotationsInterface
 
     public function getDescription(): string
     {
-        return 'List this store\'s active category tree with URLs and product counts. '
-            . 'USE THIS to answer "what do you sell?" or "what is in this shop?", and to '
-            . 'narrow a vague request before searching. The returned id values are the '
-            . 'category_id argument for search_products.';
+        return 'List this store\'s active category tree with names, URLs and product counts, to '
+            . 'a bounded depth. Returns id values that are the category_id argument for '
+            . 'search_products. Use this to see what the store stocks, or to narrow a vague '
+            . 'request before searching.';
     }
 
     public function getInputSchema(): array

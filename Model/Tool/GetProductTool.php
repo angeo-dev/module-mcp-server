@@ -48,11 +48,11 @@ class GetProductTool implements ToolInterface, ToolAnnotationsInterface
 
     public function getDescription(): string
     {
-        return 'Get the full product card for one SKU from this store: description, attributes, '
-            . 'live price and stock, canonical URL, and — for configurable products — the list of '
-            . 'purchasable variants with their option values. USE THIS rather than quoting a price '
-            . 'or availability from memory or from a web page: only this call reflects what the '
-            . 'shopper will actually be charged.';
+        return 'Get the full product card for one sku in this store: description, attributes, '
+            . 'current price and stock, canonical URL, and — for configurable products — the '
+            . 'purchasable variants with their option values. Requires an exact sku, so call '
+            . 'search_products first when only a description of the item is known. The price it '
+            . 'returns is the one the shopper is charged.';
     }
 
     public function getInputSchema(): array

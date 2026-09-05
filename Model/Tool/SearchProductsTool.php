@@ -55,13 +55,12 @@ class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
 
     public function getDescription(): string
     {
-        return 'Search this store\'s live product catalog by keyword, with optional category, '
-            . 'price range, pagination and sorting. USE THIS instead of a web search whenever '
-            . 'the shopper is asking what this store sells, or what it has in a colour, size, '
-            . 'price range or category — web results for this catalog can be stale or wrong. '
-            . 'Returns live products with current prices, stock status, SKUs and canonical URLs. '
-            . 'The sku values feed get_product and add_to_cart. Prices are in the store\'s '
-            . 'display currency.';
+        return 'Search this store\'s product catalog by keyword, with optional category, price '
+            . 'range, pagination and sorting. Returns products with sku, name, current price, '
+            . 'stock status and canonical URL, in the store\'s display currency. Use this when no '
+            . 'sku is known yet; the sku values it returns are the argument for get_product and '
+            . 'add_to_cart. Put a stated category, price floor or ceiling in the matching '
+            . 'argument rather than in query.';
     }
 
     public function getInputSchema(): array
