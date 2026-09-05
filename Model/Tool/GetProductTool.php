@@ -33,6 +33,9 @@ class GetProductTool implements ToolInterface, ToolAnnotationsInterface
     use ReadOnlyAnnotationsTrait;
 
     private const MAX_VARIANTS = 100;
+    
+    /** Cap on published attributes; a card is a summary, not an EAV dump. */
+    private const MAX_ATTRIBUTES = 40;
 
     public function __construct(
         private readonly ProductRepositoryInterface $productRepository,
@@ -48,11 +51,15 @@ class GetProductTool implements ToolInterface, ToolAnnotationsInterface
 
     public function getDescription(): string
     {
-        return 'Get the full product card for one sku in this store: description, attributes, '
-            . 'current price and stock, canonical URL, and — for configurable products — the '
-            . 'purchasable variants with their option values. Requires an exact sku, so call '
-            . 'search_products first when only a description of the item is known. The price it '
-            . 'returns is the one the shopper is charged.';
+        return 'Get the full product card for one sku in this store: description, current price '
+            . 'and stock, canonical URL, the storefront attributes the merchant filled in, and — '
+            . 'for configurable products — the purchasable variants with their option values. '
+            . 'Requires an exact sku, so call search_products first when only a description of '
+            . 'the item is known. The price it returns is the one the shopper is charged. '
+            . 'The attributes block is what this merchant maintains, not a full specification: '
+            . 'an attribute missing from it is unrecorded in the catalog, which is not the same '
+            . 'as the product lacking that feature. Report it as not listed rather than as '
+            . 'absent, and never infer one from an image filename or a similar product.';
     }
 
     public function getInputSchema(): array
@@ -106,19 +113,101 @@ class GetProductTool implements ToolInterface, ToolAnnotationsInterface
             'regular_price' => round((float) $product->getPrice(), 4),
             'currency'    => (string) $store->getCurrentCurrencyCode(),
             'in_stock'    => (bool) $stockStatus->getStockStatus(),
-            'url'         => (string) $product->getProductUrl(),
-            'image'       => $product->getImage() && $product->getImage() !== 'no_selection'
-                ? rtrim((string) $store->getBaseUrl(UrlInterface::URL_TYPE_MEDIA), '/')
-                    . '/catalog/product' . $product->getImage()
-                : null,
-            'description' => mb_substr(strip_tags((string) $product->getDescription()), 0, 4000),
         ];
+
+        // Optional fields are omitted rather than sent as null or "". A null
+        // reads as a claim about the product; an absent key claims nothing.
+        $url = trim((string) $product->getProductUrl());
+        if ($url !== '') {
+            $card['url'] = $url;
+        }
+
+        $image = (string) $product->getImage();
+        if ($image !== '' && $image !== 'no_selection') {
+            $card['image'] = rtrim((string) $store->getBaseUrl(UrlInterface::URL_TYPE_MEDIA), '/')
+                . '/catalog/product' . $image;
+        }
+
+        $description = trim(mb_substr(strip_tags((string) $product->getDescription()), 0, 4000));
+        if ($description !== '') {
+            $card['description'] = $description;
+        }
+
+        $attributes = $this->collectAttributes($product);
+        if ($attributes !== []) {
+            $card['attributes'] = $attributes;
+        }
 
         if ($product->getTypeId() === Configurable::TYPE_CODE) {
             $card['variants'] = $this->buildVariants($product, $store);
         }
 
         return $card;
+    }
+
+    /**
+     * The storefront attributes this merchant actually maintains.
+     *
+     * Scoped to what the merchant marked visible on the product page, which is
+     * the same set a shopper sees, and to values that are actually filled in.
+     * The alternative — every EAV attribute, empty ones included — would be a
+     * wall of nulls that reads as a specification and is not one.
+     *
+     * Fields already on the card in their own right are skipped so the same
+     * fact is not published twice under two names.
+     *
+     * @return array<string, string> attribute label => rendered value
+     */
+    private function collectAttributes(Product $product): array
+    {
+        $skip = [
+            'name', 'sku', 'price', 'special_price', 'cost', 'url_key', 'status',
+            'visibility', 'description', 'short_description', 'image', 'small_image',
+            'thumbnail', 'media_gallery', 'tier_price', 'category_ids', 'quantity_and_stock_status',
+        ];
+
+        $attributes = [];
+        foreach ($product->getAttributes() as $attribute) {
+            if (count($attributes) >= self::MAX_ATTRIBUTES) {
+                break;
+            }
+
+            $code = (string) $attribute->getAttributeCode();
+            if (in_array($code, $skip, true) || !$attribute->getIsVisibleOnFront()) {
+                continue;
+            }
+
+            // Read the stored value first. A boolean the merchant never set
+            // renders as "No" through the frontend model, which would publish
+            // "this product does not have the feature" when the truth is that
+            // nobody recorded anything. Unset is unset, whatever the input type.
+            $raw = $product->getData($code);
+            if ($raw === null || $raw === '' || $raw === []) {
+                continue;
+            }
+
+            try {
+                $value = $attribute->getFrontend()->getValue($product);
+            } catch (\Throwable) {
+                // A broken source model on one attribute must not cost the
+                // whole card.
+                continue;
+            }
+
+            if (is_array($value)) {
+                $value = implode(', ', array_filter(array_map('strval', $value)));
+            }
+
+            $value = trim(strip_tags((string) $value));
+            if ($value === '') {
+                continue;
+            }
+
+            $label = trim((string) $attribute->getStoreLabel()) ?: $code;
+            $attributes[$label] = mb_substr($value, 0, 500);
+        }
+
+        return $attributes;
     }
 
     private function buildVariants(Product $product, StoreInterface $store): array

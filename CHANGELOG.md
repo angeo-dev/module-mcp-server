@@ -6,6 +6,54 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.1.1] - 2026-09-05
+
+A truthfulness release. Live testing on the demo store produced a product
+comparison in which the colour, material, size and laptop-pocket status of a
+product were all stated confidently and none of them came from the catalog.
+Every change here exists to make that impossible to repeat.
+
+### Fixed
+
+- **`search_products` now says what it leaves out.** A search record carries
+  sku, name, type, price, stock and — where they exist — url and image. It
+  never carried attributes, description or variants, and it never said so.
+  Asked to compare two products, a reader with only search results has no
+  signal that the missing fields are missing from the *result* rather than
+  from the *product*, and fills them from whatever is at hand — a colour word
+  in an image filename, a sibling product, prior knowledge of the sample
+  catalog. Responses now declare `omitted_fields`, and the description says to
+  call `get_product` before stating any characteristic.
+
+- **`get_product` returns the attributes its description promised.** The
+  description advertised attributes; the payload had no such key. Reviewers
+  call every tool and compare the result against the description, and this
+  contradiction would have been read as carelessness at best.
+
+  The new `attributes` block is the storefront attributes the merchant marked
+  visible and actually filled in, keyed by store label. It is deliberately not
+  the full EAV set: a wall of empty attributes reads as a specification and is
+  not one. The description states plainly that a missing attribute is
+  unrecorded rather than absent, and that neither an image filename nor a
+  similar product may be used to infer one.
+
+- **Empty optional fields are omitted, not sent as `null` or `""`.** Both
+  tools used to publish `"short_description": ""` and `"image": null` for
+  products without them. An empty value is a claim about the product; an
+  absent key is not. Applies to `url`, `image`, `short_description`,
+  `description` and `attributes`.
+
+- **An unset boolean attribute is skipped rather than published as "No".**
+  Magento's frontend model renders a never-set boolean as "No", which asserts
+  that a product lacks a feature when nothing was ever recorded about it. The
+  stored value is checked before rendering.
+
+### Added
+
+- Descriptions on `search_products`' `price_min`, `price_max`, `page`,
+  `page_size` and `sort`. `ToolContractTest`, added in 2.1.0, fails without
+  them — as intended: a type says what shape a value has, never what it means.
+
 ## [2.1.0] - 2026-09-05
 
 A tool-contract release. Nothing in the handler layer changed; what changed is

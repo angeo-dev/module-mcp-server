@@ -39,6 +39,13 @@ class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
 {
     use ReadOnlyAnnotationsTrait;
 
+    /**
+     * What a search record never carries, whatever the product. Declared on
+     * every response and named in the tool description; get_product is where
+     * these live.
+     */
+    private const OMITTED_FIELDS = ['attributes', 'description', 'variants', 'options', 'categories'];
+
     public function __construct(
         private readonly ProductRepositoryInterface $productRepository,
         private readonly SearchCriteriaBuilder $searchCriteriaBuilder,
@@ -56,11 +63,16 @@ class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
     public function getDescription(): string
     {
         return 'Search this store\'s product catalog by keyword, with optional category, price '
-            . 'range, pagination and sorting. Returns products with sku, name, current price, '
-            . 'stock status and canonical URL, in the store\'s display currency. Use this when no '
-            . 'sku is known yet; the sku values it returns are the argument for get_product and '
-            . 'add_to_cart. Put a stated category, price floor or ceiling in the matching '
-            . 'argument rather than in query.';
+            . 'range, pagination and sorting. Use this when no sku is known yet. '
+            . 'Each result is an abridged record: sku, name, type, current price, stock status, '
+            . 'and canonical URL and image where the product has them. Prices are in the store\'s '
+            . 'display currency. '
+            . 'Results carry no attributes, no full description and no variants — the response '
+            . 'lists what it leaves out in omitted_fields. Call get_product with a sku before '
+            . 'stating a colour, size, material, capacity or any other characteristic of a '
+            . 'product; a field absent from a result is absent from the result, not from the '
+            . 'product. Put a stated category, price floor or ceiling in the matching argument '
+            . 'rather than in query.';
     }
 
     public function getInputSchema(): array
@@ -70,14 +82,35 @@ class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
             'properties' => [
                 'query'       => ['type' => 'string', 'description' => 'Keyword(s) to match in product names'],
                 'category_id' => ['type' => 'integer', 'description' => 'Restrict to a category (see list_categories)'],
-                'price_min'   => ['type' => 'number', 'minimum' => 0],
-                'price_max'   => ['type' => 'number', 'minimum' => 0],
-                'page'        => ['type' => 'integer', 'minimum' => 1, 'default' => 1],
-                'page_size'   => ['type' => 'integer', 'minimum' => 1, 'maximum' => 50],
+                'price_min'   => [
+                    'type'        => 'number',
+                    'minimum'     => 0,
+                    'description' => 'Lowest acceptable price, in the store\'s display currency.',
+                ],
+                'price_max'   => [
+                    'type'        => 'number',
+                    'minimum'     => 0,
+                    'description' => 'Price ceiling the shopper stated, in the store\'s display currency.',
+                ],
+                'page'        => [
+                    'type'        => 'integer',
+                    'minimum'     => 1,
+                    'default'     => 1,
+                    'description' => 'Result page to return; omit for the first. Compare with total_count '
+                        . 'to see whether more results exist.',
+                ],
+                'page_size'   => [
+                    'type'        => 'integer',
+                    'minimum'     => 1,
+                    'maximum'     => 50,
+                    'description' => 'Results per page; the store\'s configured default applies when omitted '
+                        . 'and its configured maximum caps this value.',
+                ],
                 'sort'        => [
-                    'type' => 'string',
-                    'enum' => ['relevance', 'price_asc', 'price_desc', 'newest'],
-                    'default' => 'relevance',
+                    'type'        => 'string',
+                    'enum'        => ['relevance', 'price_asc', 'price_desc', 'newest'],
+                    'default'     => 'relevance',
+                    'description' => 'Result order; relevance unless the shopper asked otherwise.',
                 ],
             ],
             'required'             => [],
@@ -161,6 +194,12 @@ class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
             'page'        => $page,
             'page_size'   => $pageSize,
             'currency'    => (string) $store->getCurrentCurrencyCode(),
+            // A search result says what it found; without this it does not say
+            // what it never carries. A reader that cannot tell "this tool omits
+            // attributes" from "this product has no attributes" will fill the
+            // gap from somewhere else — a filename, a sibling product, its own
+            // prior knowledge — and present the result as the store's data.
+            'omitted_fields' => self::OMITTED_FIELDS,
         ];
     }
 
@@ -172,22 +211,39 @@ class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
             (int) $store->getWebsiteId()
         );
 
-        return [
-            'sku'               => (string) $product->getSku(),
-            'name'              => (string) $product->getName(),
-            'type'              => (string) $product->getTypeId(),
-            'price'             => $product instanceof Product
+        $summary = [
+            'sku'      => (string) $product->getSku(),
+            'name'     => (string) $product->getName(),
+            'type'     => (string) $product->getTypeId(),
+            'price'    => $product instanceof Product
                 ? round((float) $product->getFinalPrice(), 4)
                 : (float) $product->getPrice(),
-            'in_stock'          => (bool) $stockStatus->getStockStatus(),
-            'url'               => $product instanceof Product ? (string) $product->getProductUrl() : null,
-            'image'             => $product instanceof Product && $product->getImage() && $product->getImage() !== 'no_selection'
-                ? rtrim((string) $store->getBaseUrl(\Magento\Framework\UrlInterface::URL_TYPE_MEDIA), '/')
-                    . '/catalog/product' . $product->getImage()
-                : null,
-            'short_description' => $product instanceof Product
-                ? mb_substr(strip_tags((string) $product->getShortDescription()), 0, 300)
-                : null,
+            'in_stock' => (bool) $stockStatus->getStockStatus(),
         ];
+
+        // Optional fields are omitted rather than sent as null or "". An empty
+        // string reads as "the merchant left this blank", which is a claim
+        // about the product; leaving the key out claims nothing.
+        $url = $product instanceof Product ? trim((string) $product->getProductUrl()) : '';
+        if ($url !== '') {
+            $summary['url'] = $url;
+        }
+
+        $image = $product instanceof Product ? (string) $product->getImage() : '';
+        if ($image !== '' && $image !== 'no_selection') {
+            $summary['image'] = rtrim(
+                (string) $store->getBaseUrl(\Magento\Framework\UrlInterface::URL_TYPE_MEDIA),
+                '/'
+            ) . '/catalog/product' . $image;
+        }
+
+        $shortDescription = $product instanceof Product
+            ? trim(mb_substr(strip_tags((string) $product->getShortDescription()), 0, 300))
+            : '';
+        if ($shortDescription !== '') {
+            $summary['short_description'] = $shortDescription;
+        }
+
+        return $summary;
     }
 }

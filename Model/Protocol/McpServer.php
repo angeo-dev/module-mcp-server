@@ -32,7 +32,7 @@ use Magento\Store\Api\Data\StoreInterface;
 class McpServer
 {
     public const SERVER_NAME    = 'Angeo MCP Server for Magento 2';
-    public const SERVER_VERSION = '2.1.0';
+    public const SERVER_VERSION = '2.1.1';
 
     /**
      * Newest protocol revision this server implements, plus older revisions
