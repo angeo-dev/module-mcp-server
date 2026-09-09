@@ -6,6 +6,110 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.2.1] - 2026-09-08
+
+2.2.0 made category counts truthful for anchor categories and left a second
+problem in plain sight: one response could carry two different kinds of
+number under one key.
+
+`Category\Collection::loadProductCount()` counts anchor categories from the
+category-product index with a visibility filter, and non-anchor categories as
+raw rows in `catalog_category_product` with no visibility filter at all. On
+the demo store that put Gear at 48 beside sibling categories counted as 12 —
+48 assignment rows including size and colour variants, against 12 products a
+shopper can actually open. A reader comparing them sees four times the choice
+and is wrong.
+
+### Fixed
+
+- **`product_count` has one definition.** Every category is now counted from
+  the store's category-product index — which already holds the anchor rollup —
+  under the same visibility set `search_products` filters on. A count now
+  predicts what a search in that category returns, which is the call an agent
+  makes next.
+
+### Added
+
+- `Angeo\McpServer\Model\Catalog\CategoryProductCounter`, resolving the
+  per-store index table through `TableMaintainer` rather than the legacy
+  un-dimensioned table name.
+- `CategoryProductCounter::VISIBILITY_IDS`, now the single source for the
+  visibility set used by both `list_categories` and `search_products`.
+
+### Changed
+
+- `list_categories` description states that a count is what `search_products`
+  will return for that category.
+- When the category-product index cannot be read at all, the tool falls back
+  to Magento's rollup rather than reporting an empty catalog. The fallback is
+  logged. An index that reads clean but returns nothing is a real zero and is
+  reported as one.
+
+### Upgrade notes
+
+Counts will drop on stores whose non-anchor categories hold variant
+assignments — the demo store's Gear went from 48 to the number of products a
+shopper can open. Nothing changed in the catalog; the earlier number was
+counting something else. Requires the category-product indexer to have run,
+which any working storefront already needs.
+
+---
+
+## [2.2.0] - 2026-09-08
+
+A category release. Testing the server against the demo store with an agent
+rather than a script exposed a failure no functional test had caught: the
+storefront and the MCP surface disagreed about what the store sells.
+
+Browsing `list_categories` reported `product_count: 0` for Women, Men,
+Training and Sale, and a real count only for Gear. `search_products` then
+found seventeen jackets. An agent that starts by browsing — as a shopper who
+does not know what they want will — concludes the store stocks bags, gym
+equipment and watches, and nothing in the response says otherwise.
+
+### Fixed
+
+- **`list_categories` counts the subtree, not the assignment row.**
+  `Category::getProductCount()` counts direct assignments in
+  `catalog_category_product`. Magento assigns products to leaf categories and
+  rolls them up with the `is_anchor` flag, so on any store with depth the
+  direct count is zero for exactly the categories a shopper browses. Counts
+  now come from `loadProductCount()` — the same rollup the storefront and the
+  admin category grid use.
+
+- **`search_products` honours anchor categories.** The search-criteria filter
+  `category_id` resolves against the same direct-assignment table, so a
+  parent category returned an empty result set while its storefront page
+  listed hundreds of products. An anchor category is now expanded to its
+  active subtree before filtering, via the new `AnchorCategoryResolver`.
+
+- **Default depth is 3, not 2.** Two levels is the shape of the catalog with
+  none of its stock in view: the sample data, and most real stores, put
+  products on the third level. An agent calling `list_categories` with no
+  arguments never saw them.
+
+### Changed
+
+- `list_categories` and `search_products` descriptions state that a count and
+  a category filter cover subcategories, and that a zero count on a category
+  with children means look inside rather than the store has nothing.
+
+### Added
+
+- `Angeo\McpServer\Model\Catalog\AnchorCategoryResolver` — expands a
+  category id to the set of ids a shopper's own browse would cover. Reads the
+  category path, so it does not depend on the category-product indexer having
+  run.
+
+### Upgrade notes
+
+No schema or configuration changes. `search_products` results for a
+`category_id` that names an anchor category will grow, which is the point.
+Stores that deliberately run non-anchor categories are unaffected: those
+still return only what is assigned to them.
+
+---
+
 ## [2.1.1] - 2026-09-05
 
 A truthfulness release. Live testing on the demo store produced a product

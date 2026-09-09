@@ -10,6 +10,7 @@ namespace Angeo\McpServer\Model\Tool;
 
 use Angeo\McpServer\Api\ToolAnnotationsInterface;
 use Angeo\McpServer\Api\ToolInterface;
+use Angeo\McpServer\Model\Catalog\CategoryProductCounter;
 use Magento\Catalog\Api\CategoryRepositoryInterface;
 use Magento\Catalog\Model\Category;
 use Magento\Catalog\Model\ResourceModel\Category\CollectionFactory as CategoryCollectionFactory;
@@ -30,7 +31,8 @@ class ListCategoriesTool implements ToolInterface, ToolAnnotationsInterface
 
     public function __construct(
         private readonly CategoryRepositoryInterface $categoryRepository,
-        private readonly CategoryCollectionFactory $collectionFactory
+        private readonly CategoryCollectionFactory $collectionFactory,
+        private readonly CategoryProductCounter $productCounter
     ) {
     }
 
@@ -42,9 +44,12 @@ class ListCategoriesTool implements ToolInterface, ToolAnnotationsInterface
     public function getDescription(): string
     {
         return 'List this store\'s active category tree with names, URLs and product counts, to '
-            . 'a bounded depth. Returns id values that are the category_id argument for '
-            . 'search_products. Use this to see what the store stocks, or to narrow a vague '
-            . 'request before searching.';
+            . 'a bounded depth. A count is the products search_products returns for that '
+            . 'category, subcategories included where the store rolls them up. Returns id '
+            . 'values that are the category_id argument for search_products. Use this to see '
+            . 'what the store stocks, or to narrow a vague request before searching. Products '
+            . 'often sit deeper than the default depth: a zero count on a category with '
+            . 'children means look inside it, not that the store has nothing.';
     }
 
     public function getInputSchema(): array
@@ -53,7 +58,10 @@ class ListCategoriesTool implements ToolInterface, ToolAnnotationsInterface
             'type'       => 'object',
             'properties' => [
                 'parent_id' => ['type' => 'integer', 'description' => 'Subtree root; omit for the store root'],
-                'depth'     => ['type' => 'integer', 'minimum' => 1, 'maximum' => self::MAX_DEPTH, 'default' => 2],
+                // Three levels, not two: stores routinely assign products to
+                // the third level, so a two-level default returns the shape of
+                // the catalog with none of its stock visible.
+                'depth'     => ['type' => 'integer', 'minimum' => 1, 'maximum' => self::MAX_DEPTH, 'default' => 3],
             ],
             'required'             => [],
             'additionalProperties' => false,
@@ -70,7 +78,7 @@ class ListCategoriesTool implements ToolInterface, ToolAnnotationsInterface
         $rootId = isset($arguments['parent_id'])
             ? (int) $arguments['parent_id']
             : (int) $store->getRootCategoryId();
-        $depth = min(self::MAX_DEPTH, max(1, (int) ($arguments['depth'] ?? 2)));
+        $depth = min(self::MAX_DEPTH, max(1, (int) ($arguments['depth'] ?? 3)));
 
         try {
             $root = $this->categoryRepository->get($rootId, $store->getId());
@@ -93,19 +101,43 @@ class ListCategoriesTool implements ToolInterface, ToolAnnotationsInterface
 
         $collection = $this->collectionFactory->create();
         $collection->setStoreId((int) $store->getId())
-            ->addAttributeToSelect(['name', 'url_key', 'is_active', 'include_in_menu'])
+            ->setProductStoreId((int) $store->getId())
+            ->addAttributeToSelect(['name', 'url_key', 'is_active', 'include_in_menu', 'is_anchor'])
             ->addAttributeToFilter('parent_id', (int) $parent->getId())
             ->addAttributeToFilter('is_active', 1)
             ->setOrder('position', 'ASC');
+        $collection->load();
+
+        $items = $collection->getItems();
+        if ($items === []) {
+            return [];
+        }
+
+        // One count query per level, and one definition of "count" across the
+        // whole response: products visible in this category, anchor rollup
+        // included. Magento's own loadProductCount() mixes two definitions —
+        // see CategoryProductCounter — and is used here only as a fallback
+        // when the category-product index cannot be read.
+        $counts = $this->productCounter->countFor(
+            array_map('intval', array_keys($items)),
+            (int) $store->getId()
+        );
+        $indexed = $counts !== null;
+        if (!$indexed) {
+            $collection->loadProductCount($items, true, true);
+        }
 
         $result = [];
         /** @var Category $category */
-        foreach ($collection as $category) {
+        foreach ($items as $category) {
+            $id = (int) $category->getId();
             $result[] = [
-                'id'            => (int) $category->getId(),
+                'id'            => $id,
                 'name'          => (string) $category->getName(),
                 'url'           => (string) $category->getUrl(),
-                'product_count' => (int) $category->getProductCount(),
+                'product_count' => $indexed
+                    ? ($counts[$id] ?? 0)
+                    : (int) $category->getProductCount(),
                 'children'      => $this->children($category, $store, $depth - 1),
             ];
         }

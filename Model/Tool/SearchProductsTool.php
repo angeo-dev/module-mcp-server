@@ -10,12 +10,13 @@ namespace Angeo\McpServer\Model\Tool;
 
 use Angeo\McpServer\Api\ToolAnnotationsInterface;
 use Angeo\McpServer\Api\ToolInterface;
+use Angeo\McpServer\Model\Catalog\AnchorCategoryResolver;
+use Angeo\McpServer\Model\Catalog\CategoryProductCounter;
 use Angeo\McpServer\Model\Config;
 use Magento\Catalog\Api\Data\ProductInterface;
 use Magento\Catalog\Api\ProductRepositoryInterface;
 use Magento\Catalog\Model\Product;
 use Magento\Catalog\Model\Product\Attribute\Source\Status;
-use Magento\Catalog\Model\Product\Visibility;
 use Magento\CatalogInventory\Api\StockRegistryInterface;
 use Magento\Framework\Api\SearchCriteriaBuilder;
 use Magento\Framework\Api\SortOrderBuilder;
@@ -51,6 +52,7 @@ class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
         private readonly SearchCriteriaBuilder $searchCriteriaBuilder,
         private readonly SortOrderBuilder $sortOrderBuilder,
         private readonly StockRegistryInterface $stockRegistry,
+        private readonly AnchorCategoryResolver $anchorCategoryResolver,
         private readonly Config $config
     ) {
     }
@@ -81,7 +83,11 @@ class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
             'type'       => 'object',
             'properties' => [
                 'query'       => ['type' => 'string', 'description' => 'Keyword(s) to match in product names'],
-                'category_id' => ['type' => 'integer', 'description' => 'Restrict to a category (see list_categories)'],
+                'category_id' => [
+                    'type'        => 'integer',
+                    'description' => 'Restrict to a category, including its subcategories where the '
+                        . 'store rolls them up (see list_categories).',
+                ],
                 'price_min'   => [
                     'type'        => 'number',
                     'minimum'     => 0,
@@ -133,11 +139,9 @@ class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
 
         $this->searchCriteriaBuilder
             ->addFilter(ProductInterface::STATUS, Status::STATUS_ENABLED)
-            ->addFilter(
-                ProductInterface::VISIBILITY,
-                [Visibility::VISIBILITY_BOTH, Visibility::VISIBILITY_IN_SEARCH],
-                'in'
-            )
+            // Shared with list_categories, so a category count and the search
+            // it predicts cannot drift apart.
+            ->addFilter(ProductInterface::VISIBILITY, CategoryProductCounter::VISIBILITY_IDS, 'in')
             ->addFilter('website_id', $store->getWebsiteId());
 
         $query = trim((string) ($arguments['query'] ?? ''));
@@ -153,7 +157,20 @@ class SearchProductsTool implements ToolInterface, ToolAnnotationsInterface
         }
 
         if (isset($arguments['category_id'])) {
-            $this->searchCriteriaBuilder->addFilter('category_id', (int) $arguments['category_id']);
+            // An anchor category is expanded to its subtree first. The core
+            // category_id filter matches direct assignments only, and Magento
+            // assigns products to leaf categories, so filtering on a parent id
+            // as given returns an empty set for a category whose storefront
+            // page is full of products.
+            $categoryIds = $this->anchorCategoryResolver->resolve(
+                (int) $arguments['category_id'],
+                $store
+            );
+            $this->searchCriteriaBuilder->addFilter(
+                'category_id',
+                implode(',', $categoryIds),
+                'in'
+            );
         }
         if (isset($arguments['price_min'])) {
             $this->searchCriteriaBuilder->addFilter(ProductInterface::PRICE, (float) $arguments['price_min'], 'gteq');
