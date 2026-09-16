@@ -85,6 +85,9 @@ class ListCategoriesTool implements ToolInterface, ToolAnnotationsInterface
         } catch (NoSuchEntityException) {
             throw new \InvalidArgumentException(sprintf('Category not found: %d', $rootId));
         }
+        if (!$root instanceof Category) {
+            throw new \InvalidArgumentException(sprintf('Category not found: %d', $rootId));
+        }
 
         // One collection query per level keeps this bounded and index-friendly.
         return [
@@ -103,8 +106,8 @@ class ListCategoriesTool implements ToolInterface, ToolAnnotationsInterface
         $collection->setStoreId((int) $store->getId())
             ->setProductStoreId((int) $store->getId())
             ->addAttributeToSelect(['name', 'url_key', 'is_active', 'include_in_menu', 'is_anchor'])
-            ->addAttributeToFilter('parent_id', (int) $parent->getId())
-            ->addAttributeToFilter('is_active', 1)
+            ->addAttributeToFilter('parent_id', ['eq' => (int) $parent->getId()])
+            ->addAttributeToFilter('is_active', ['eq' => 1])
             ->setOrder('position', 'ASC');
         $collection->load();
 

@@ -1,5 +1,13 @@
 # Angeo MCP Server for Magento 2
 
+[![CI](https://github.com/angeo-dev/module-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/angeo-dev/module-mcp-server/actions/workflows/ci.yml)
+[![Packagist Version](https://img.shields.io/packagist/v/angeo/module-mcp-server)](https://packagist.org/packages/angeo/module-mcp-server)
+[![Downloads](https://img.shields.io/packagist/dt/angeo/module-mcp-server)](https://packagist.org/packages/angeo/module-mcp-server)
+[![PHP](https://img.shields.io/badge/PHP-8.1%20%E2%80%93%208.5-777bb4)](composer.json)
+[![Magento](https://img.shields.io/badge/Magento-2.4.6%20%E2%80%93%202.4.9-f26322)](composer.json)
+[![Mage-OS Directory](https://img.shields.io/badge/Mage--OS-Extension%20Directory-2d7d9a)](https://directory.mage-os.org/packages/angeo/module-mcp-server/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 **Give AI agents a real API to your store — instead of letting them scrape it.**
 
 `angeo/module-mcp-server` exposes your Magento 2 / Adobe Commerce (self-hosted)
@@ -18,7 +26,7 @@ instead of scraping stale HTML.
 
 ## Requirements
 
-* Magento Open Source / Adobe Commerce **2.4.6+** (PHP 8.1–8.4)
+* Magento Open Source / Adobe Commerce **2.4.6+** (PHP 8.1–8.5)
 * No external services: no Redis requirement, no Node sidecar, no SaaS dependency
 
 ## Installation
@@ -226,7 +234,6 @@ to AI systems end-to-end: [`module-llms-txt`](https://packagist.org/packages/ang
 
 **Is your store actually visible to AI shopping agents?** Run the free scan:
 <https://angeo.dev/scan> · Implementation and audits: <support@angeo.dev>
-
 
 ## "Add to Claude" button
 

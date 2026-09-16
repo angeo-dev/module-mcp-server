@@ -20,7 +20,7 @@ namespace Angeo\McpServer\Model\Protocol;
  *
  * @since 1.0.0
  */
-final class JsonRpcRequest
+class JsonRpcRequest
 {
     private function __construct(
         private readonly string|int|null $id,

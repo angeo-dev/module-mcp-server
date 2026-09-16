@@ -38,16 +38,22 @@ class RateLimiter
             return true; // 0 = unlimited (explicit operator choice)
         }
 
-        if (!is_dir($this->storageDir) && !@mkdir($this->storageDir, 0770, true) && !is_dir($this->storageDir)) {
-            return true; // fail-open: a broken FS must not take the store down
-        }
-
         // Key is attacker-influenced (IP / token) — never trust it as a path.
         $file = $this->storageDir . '/rl_' . hash('sha256', $key) . '.cnt';
 
-        $handle = @fopen($file, 'c+');
+        // Fail-open: a broken filesystem must not take the store down.
+        // Magento's error handler turns PHP warnings into exceptions, so the
+        // filesystem calls are guarded with try/catch instead of the @ operator.
+        try {
+            if (!is_dir($this->storageDir)) {
+                mkdir($this->storageDir, 0770, true);
+            }
+            $handle = fopen($file, 'c+');
+        } catch (\Throwable $e) {
+            return true;
+        }
         if ($handle === false) {
-            return true; // fail-open
+            return true;
         }
 
         try {

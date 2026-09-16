@@ -10,7 +10,7 @@
         <label translate="true">Add to Claude Button</label>
         <description translate="true">One-click button that lets shoppers connect this store to Claude. Requires a Connector URL in Stores → Configuration → Angeo → MCP Server → Claude Connector.</description>
         <parameters>
-            <parameter name="button_label" xsi:type="text" visible="true" sortOrder="10">
+            <parameter name="button_label" xsi:type="text" visible="true" sort_order="10">
                 <label translate="true">Button Label</label>
                 <description translate="true">Defaults to "Add to Claude".</description>
             </parameter>

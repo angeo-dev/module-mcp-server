@@ -23,7 +23,9 @@ class RateLimiterTest extends TestCase
     protected function tearDown(): void
     {
         array_map('unlink', glob($this->dir . '/*') ?: []);
-        @rmdir($this->dir);
+        if (is_dir($this->dir)) {
+            rmdir($this->dir);
+        }
     }
 
     public function testAllowsUpToLimitThenBlocks(): void

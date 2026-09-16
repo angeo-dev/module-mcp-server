@@ -33,6 +33,13 @@ class ClaudeButton extends Template
      */
     private const CLAUDE_CONNECT_URL = 'https://claude.ai/customize/connectors';
 
+    private const DEFAULT_TEMPLATE = 'Angeo_McpServer::claude-button.phtml';
+
+    /**
+     * @var string
+     */
+    protected $_template = self::DEFAULT_TEMPLATE;
+
     public function __construct(
         Context $context,
         private readonly Config $config,
@@ -46,7 +53,9 @@ class ClaudeButton extends Template
     {
         parent::_construct();
         if ((string) $this->getTemplate() === '') {
-            $this->setTemplate('Angeo_McpServer::claude-button.phtml');
+            // A widget instance can pass an empty "template" value; fall back
+            // to the default without calling the deprecated setter.
+            $this->_template = self::DEFAULT_TEMPLATE;
         }
     }
 

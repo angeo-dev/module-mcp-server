@@ -13,7 +13,7 @@ namespace Angeo\McpServer\Model\Protocol;
  *
  * @since 1.0.0
  */
-final class ErrorCodes
+class ErrorCodes
 {
     public const PARSE_ERROR      = -32700;
     public const INVALID_REQUEST  = -32600;

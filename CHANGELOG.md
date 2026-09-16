@@ -6,6 +6,53 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.2.2] - 2026-09-15
+
+A code-quality release. No change to tools, schemas or responses.
+
+### Changed
+
+- **PHP 8.5 allowed** in `composer.json`, in line with the rest of the Angeo suite.
+- Magento dependencies now have bounded ranges (Magento 2.4.6 – 2.4.x) instead
+  of `*`, matching `module-mcp-checkout`.
+- `RateLimiter` no longer uses the `@` operator. Filesystem calls are wrapped in
+  `try/catch`, so the limiter still fails open when the storage directory cannot
+  be created or opened.
+- `JsonRpcRequest`, `JsonRpcResponse` and `ErrorCodes` are no longer `final`
+  (Magento coding standard: final classes block plugins and proxies).
+- `etc/widget.xml`: `sortOrder` renamed to `sort_order`, the attribute
+  `widget.xsd` defines. Magento rejects the old name when it validates XML.
+- `ClaudeButton` sets its default template through the `$_template` property
+  instead of calling `setTemplate()` in `_construct()`. Behaviour is the same.
+
+- `list_categories`: the root category is checked to be a `Category` model, and
+  collection filters use `['eq' => …]`. Same SQL, same output.
+
+### Added
+
+- GitHub Actions CI (`.github/workflows/ci.yml`) on PHP 8.1–8.5: composer
+  validate, PHP lint, Magento2 coding standard,
+  PHPUnit. PHPStan runs once, in its own job on PHP 8.2, as in
+  the Mage-OS modules. Magento
+  packages come from the Mage-OS mirror.
+- `phpstan.neon` (level 5, `bitexpert/phpstan-magento`). The extension
+  generates Magento factory classes during analysis, so no stub files are
+  needed.
+- Dev dependencies: `magento/magento-coding-standard`, `phpstan/phpstan`,
+  `bitexpert/phpstan-magento`.
+
+### Documentation
+
+- README: one badge row across the suite — CI, Packagist version and
+  downloads, PHP 8.1 – 8.5, supported Magento range, Mage-OS Extension
+  Directory, license.
+
+### Quality
+
+- Magento2 coding standard: 0 errors. PHPStan level 5: no errors.
+
+---
+
 ## [2.2.1] - 2026-09-08
 
 2.2.0 made category counts truthful for anchor categories and left a second
