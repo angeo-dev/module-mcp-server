@@ -27,7 +27,27 @@
             </catalog>
             <security>
                 <rate_limit_per_minute>60</rate_limit_per_minute>
+                <!-- Off: only modules that act for a signed-in customer need it. -->
+                <customer_auth>0</customer_auth>
+                <allowed_origins></allowed_origins>
+                <!-- Ordinary Magento customer tokens at /mcp: testing only. -->
+                <storefront_customer_tokens>0</storefront_customer_tokens>
             </security>
+            <linking>
+                <!-- Off: a merchant enables it together with a connector. -->
+                <enabled>0</enabled>
+                <redirect_uris></redirect_uris>
+                <client_label></client_label>
+                <!-- Minutes. MCP-only tokens; the connector renews them. -->
+                <token_lifetime>60</token_lifetime>
+            </linking>
+            <protocol>
+                <!-- MCP 2026-07-28 requires MCP-Protocol-Version, Mcp-Method and
+                     Mcp-Name on every request. Mismatches are always rejected;
+                     strict mode also rejects requests that omit them. -->
+                <strict_headers>1</strict_headers>
+                <list_ttl_seconds>300</list_ttl_seconds>
+            </protocol>
         </angeo_mcp>
     </default>
 </config>

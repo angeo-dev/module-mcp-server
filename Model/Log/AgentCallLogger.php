@@ -26,7 +26,8 @@ use Psr\Log\LoggerInterface;
  *
  * Logged fields NEVER include tool result payloads (they may echo catalog
  * data at scale) or Authorization headers. Only: timestamp, store, method,
- * tool name, truncated user agent, duration, outcome flag.
+ * tool name, truncated user agent, duration, outcome flag, caller kind
+ * (anonymous / integration / customer) and protocol era.
  *
  * @since 1.0.0
  */
@@ -46,12 +47,20 @@ class AgentCallLogger
         JsonRpcRequest $request,
         ?JsonRpcResponse $response,
         string $userAgent,
-        float $durationSeconds
+        float $durationSeconds,
+        string $authType = 'anonymous',
+        string $protocol = 'legacy'
     ): void {
-        // Log only tool calls and initializations — pings and list calls are noise.
-        if (!in_array($request->getMethod(), ['tools/call', 'initialize'], true)) {
+        // Log only tool calls and connection starts — pings and list calls are
+        // noise. 2026-07-28 clients have no `initialize`; `server/discover` is
+        // the closest thing to it.
+        if (!in_array($request->getMethod(), ['tools/call', 'initialize', 'server/discover'], true)) {
             return;
         }
+
+        // A tool that ran and reported a business failure (isError result)
+        // is not a success either, even though the JSON-RPC call succeeded.
+        $toolFailed = (bool) (($response?->getResult() ?? [])['isError'] ?? false);
 
         $record = [
             'ts'       => gmdate('c'),
@@ -62,7 +71,11 @@ class AgentCallLogger
                 : null,
             'ua'       => mb_substr($userAgent, 0, self::UA_MAX_LENGTH),
             'ms'       => (int) round($durationSeconds * 1000),
-            'ok'       => $response !== null && !$response->isError(),
+            'ok'       => $response !== null && !$response->isError() && !$toolFailed,
+            // Since 2.3.0. Never an id, a token or a name: only the kind of
+            // caller, which is what agent-traffic analytics need.
+            'auth'     => $authType,
+            'proto'    => $protocol,
         ];
 
         $json = json_encode($record, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);

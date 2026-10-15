@@ -1,0 +1,46 @@
+<?php
+/**
+ * @var \Angeo\McpServer\Block\Connections\ListConnections $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+$connections = $block->getConnections();
+?>
+<p><?= $escaper->escapeHtml(__(
+    'AI assistants you connected to your account. They can see your orders and prices and change your cart. '
+    . 'They cannot place orders.'
+)) ?></p>
+<?php if ($connections === []): ?>
+    <div class="message info empty"><span><?= $escaper->escapeHtml(__('No AI assistant is connected.')) ?></span></div>
+<?php else: ?>
+    <div class="table-wrapper">
+        <table class="data table">
+            <thead>
+            <tr>
+                <th scope="col"><?= $escaper->escapeHtml(__('Assistant')) ?></th>
+                <th scope="col"><?= $escaper->escapeHtml(__('Connected')) ?></th>
+                <th scope="col"><?= $escaper->escapeHtml(__('Last used')) ?></th>
+                <th scope="col"><span class="sr-only"><?= $escaper->escapeHtml(__('Action')) ?></span></th>
+            </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($connections as $connection): ?>
+                <tr>
+                    <td><?= $escaper->escapeHtml($connection['client_label']) ?></td>
+                    <td><?= $escaper->escapeHtml($block->formatUtc($connection['created_at'])) ?></td>
+                    <td><?= $escaper->escapeHtml($block->formatUtc($connection['last_used_at'])) ?></td>
+                    <td>
+                        <form method="post" action="<?= $escaper->escapeUrl($block->getRevokeUrl()) ?>">
+                            <?= $block->getBlockHtml('formkey') ?>
+                            <input type="hidden" name="grant_id"
+                                   value="<?= $escaper->escapeHtmlAttr((string) $connection['grant_id']) ?>"/>
+                            <button type="submit" class="action delete">
+                                <span><?= $escaper->escapeHtml(__('Disconnect')) ?></span>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+<?php endif; ?>

@@ -32,6 +32,48 @@ class JsonRpcResponse
         return new self($id, null, ['code' => $code, 'message' => $message]);
     }
 
+    /**
+     * Error with a `data` member, e.g. UnsupportedProtocolVersionError, whose
+     * `data.supported` lists the versions the client may retry with.
+     *
+     * @param array<string, mixed> $data
+     * @since 2.3.0
+     */
+    public static function errorWithData(string|int|null $id, int $code, string $message, array $data): self
+    {
+        return new self($id, null, ['code' => $code, 'message' => $message, 'data' => $data]);
+    }
+
+    /**
+     * Copy of this result with extra top-level fields merged in. Used to add
+     * the fields MCP 2026-07-28 requires on every result (`resultType`,
+     * `_meta`, and `ttlMs`/`cacheScope` on list results). Errors are returned
+     * unchanged.
+     *
+     * @param array<string, mixed> $fields
+     * @since 2.3.0
+     */
+    public function withResultFields(array $fields): self
+    {
+        if ($this->error !== null) {
+            return $this;
+        }
+        $result = $this->result ?? [];
+        if (isset($fields['_meta'], $result['_meta']) && is_array($fields['_meta']) && is_array($result['_meta'])) {
+            $fields['_meta'] = $result['_meta'] + $fields['_meta'];
+        }
+        return new self($this->id, $fields + $result, null);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     * @since 2.3.0
+     */
+    public function getResult(): ?array
+    {
+        return $this->result;
+    }
+
     public function isError(): bool
     {
         return $this->error !== null;

@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace Angeo\McpServer\Model\Protocol;
 
+use Angeo\McpServer\Api\CallerContextInterface;
 use Angeo\McpServer\Model\Config;
 use Angeo\McpServer\Model\Prompt\PromptRegistry;
 use Angeo\McpServer\Model\Tool\ToolRegistry;
@@ -20,27 +21,37 @@ use Magento\Store\Api\Data\StoreInterface;
  * the StoreInterface pass-through, so the whole protocol layer is unit-tested
  * without the framework.
  *
- * Supported methods (MCP spec 2025-06-18):
- *  - initialize                 → capabilities + serverInfo (version negotiation)
- *  - notifications/initialized  → notification, no response
- *  - tools/list                 → tool descriptors from the registry
- *  - tools/call                 → dispatch to a ToolInterface implementation
- *  - ping                       → {}
+ * Protocol eras (see ProtocolNegotiator):
+ *  - 2026-07-28 ("modern"): stateless. No handshake; every request names its
+ *    version in `_meta`. Results carry `resultType` and `_meta.serverInfo`,
+ *    list results carry `ttlMs` / `cacheScope`.
+ *  - 2024-11-05 … 2025-11-25 ("legacy"): `initialize` negotiates the version.
+ *
+ * Supported methods:
+ *  - server/discover            → versions, capabilities, identity (2.3.0)
+ *  - initialize                 → capabilities + serverInfo (legacy era)
+ *  - notifications/*            → accepted, no response
+ *  - tools/list, tools/call
+ *  - prompts/list, prompts/get
+ *  - ping                       → {} (removed in 2026-07-28, still answered)
  *
  * @since 1.0.0
  */
 class McpServer
 {
     public const SERVER_NAME    = 'Angeo MCP Server for Magento 2';
-    public const SERVER_VERSION = '2.2.1';
+    public const SERVER_VERSION = '2.4.0';
 
     /**
-     * Newest protocol revision this server implements, plus older revisions
-     * it can safely speak (the 1.0 feature set — tools only — is identical
-     * across these revisions).
+     * Newest revision negotiable through `initialize`, and every revision
+     * negotiable that way. The tools/prompts feature set this server uses is
+     * identical across them. Kept under their 1.x names for compatibility.
      */
-    public const PROTOCOL_VERSION = '2025-06-18';
-    public const SUPPORTED_VERSIONS = ['2025-06-18', '2025-03-26', '2024-11-05'];
+    public const PROTOCOL_VERSION = '2025-11-25';
+    public const SUPPORTED_VERSIONS = ProtocolNegotiator::LEGACY_VERSIONS;
+
+    /** Newest revision overall (stateless, no handshake). @since 2.3.0 */
+    public const LATEST_PROTOCOL_VERSION = '2026-07-28';
 
     public function __construct(
         private readonly ToolRegistry $toolRegistry,
@@ -50,35 +61,46 @@ class McpServer
          * one argument keeps working.
          */
         private readonly ?Config $config = null,
-        private readonly ?PromptRegistry $promptRegistry = null
+        private readonly ?PromptRegistry $promptRegistry = null,
+        private readonly ?CallerContextInterface $callerContext = null
     ) {
     }
 
     /**
+     * @param string|null $modernVersion the 2026-07-28-era version negotiated
+     *                                   for this request, or null for the
+     *                                   legacy (initialize) era
      * @return JsonRpcResponse|null null for notifications (HTTP 202, empty body)
      */
-    public function handle(JsonRpcRequest $request, StoreInterface $store): ?JsonRpcResponse
-    {
+    public function handle(
+        JsonRpcRequest $request,
+        StoreInterface $store,
+        ?string $modernVersion = null
+    ): ?JsonRpcResponse {
         if ($request->isNotification()) {
             // notifications/initialized, notifications/cancelled, … — accept silently.
             return null;
         }
 
         $id = $request->getId();
+        $method = $request->getMethod();
+
+        // The handshake belongs to the legacy era. A 2026-07-28 client never
+        // sends it; answering it in-era would mix the two models.
+        if ($modernVersion !== null && $method === 'initialize') {
+            return $this->methodNotFound($id, $method);
+        }
 
         try {
-            return match ($request->getMethod()) {
-                'initialize' => $this->initialize($id, $request->getParams(), $store),
-                'tools/list' => $this->listTools($id, $store),
+            $response = match ($method) {
+                'server/discover' => $this->discover($id, $store),
+                'initialize'   => $this->initialize($id, $request->getParams(), $store),
+                'tools/list'   => $this->listTools($id, $store),
                 'prompts/list' => $this->listPrompts($id, $store),
-                'prompts/get' => $this->getPrompt($id, $request->getParams(), $store),
-                'tools/call' => $this->callTool($id, $request->getParams(), $store),
-                'ping'       => JsonRpcResponse::result($id, []),
-                default      => JsonRpcResponse::error(
-                    $id,
-                    ErrorCodes::METHOD_NOT_FOUND,
-                    sprintf('Method not found: %s', $request->getMethod())
-                ),
+                'prompts/get'  => $this->getPrompt($id, $request->getParams(), $store),
+                'tools/call'   => $this->callTool($id, $request->getParams(), $store),
+                'ping'         => JsonRpcResponse::result($id, []),
+                default        => $this->methodNotFound($id, $method),
             };
         } catch (ProtocolException $e) {
             return JsonRpcResponse::error($id, $e->getCode(), $e->getMessage());
@@ -86,6 +108,77 @@ class McpServer
             // Never leak internals (exception messages may contain paths/SQL).
             return JsonRpcResponse::error($id, ErrorCodes::INTERNAL_ERROR, 'Internal error');
         }
+
+        if ($modernVersion === null || $response->isError()) {
+            return $response;
+        }
+
+        // 2026-07-28: every result says what kind it is and who answered.
+        $fields = [
+            'resultType' => 'complete',
+            '_meta'      => ['io.modelcontextprotocol/serverInfo' => $this->serverInfo()],
+        ];
+        if (in_array($method, ['tools/list', 'prompts/list'], true)) {
+            $fields += $this->cacheHints($store);
+        }
+
+        return $response->withResultFields($fields);
+    }
+
+    private function methodNotFound(string|int|null $id, string $method): JsonRpcResponse
+    {
+        return JsonRpcResponse::error(
+            $id,
+            ErrorCodes::METHOD_NOT_FOUND,
+            sprintf('Method not found: %s', mb_substr($method, 0, 80))
+        );
+    }
+
+    /**
+     * MCP `server/discover` (required since 2026-07-28, harmless before).
+     * Everything a client needs up front, in one call: the versions it may
+     * use, capabilities, identity and the instructions it would otherwise only
+     * get from `initialize`.
+     */
+    private function discover(string|int|null $id, StoreInterface $store): JsonRpcResponse
+    {
+        return JsonRpcResponse::result($id, [
+            'resultType'        => 'complete',
+            'supportedVersions' => array_merge(
+                ProtocolNegotiator::MODERN_VERSIONS,
+                ProtocolNegotiator::LEGACY_VERSIONS
+            ),
+            'capabilities'      => $this->capabilities($store),
+            'instructions'      => $this->buildInstructions($store),
+            '_meta'             => ['io.modelcontextprotocol/serverInfo' => $this->serverInfo()],
+        ] + $this->cacheHints($store));
+    }
+
+    /** @return array{name: string, version: string} */
+    private function serverInfo(): array
+    {
+        return ['name' => self::SERVER_NAME, 'version' => self::SERVER_VERSION];
+    }
+
+    /**
+     * `ttlMs` / `cacheScope` for list-type results.
+     *
+     * The tool list depends on the caller once customer tools are installed
+     * (they appear only for a signed-in customer), so an authenticated answer
+     * is marked private: a shared gateway must not hand one shopper's list to
+     * another.
+     *
+     * @return array{ttlMs: int, cacheScope: string}
+     */
+    private function cacheHints(StoreInterface $store): array
+    {
+        $authenticated = $this->callerContext !== null
+            && $this->callerContext->getAuthType() !== CallerContextInterface::AUTH_ANONYMOUS;
+
+        return [
+            'ttlMs'      => $this->config?->getListTtlMs($store) ?? 300000,
+            'cacheScope' => $authenticated ? 'private' : 'public',
+        ];
     }
 
     private function initialize(string|int|null $id, array $params, StoreInterface $store): JsonRpcResponse
@@ -101,10 +194,7 @@ class McpServer
         return JsonRpcResponse::result($id, [
             'protocolVersion' => $version,
             'capabilities'    => $this->capabilities($store),
-            'serverInfo'      => [
-                'name'    => self::SERVER_NAME,
-                'version' => self::SERVER_VERSION,
-            ],
+            'serverInfo'      => $this->serverInfo(),
             'instructions'    => $this->buildInstructions($store),
         ]);
     }
@@ -193,8 +283,16 @@ class McpServer
             $parts[] = 'These tools are read-only: browsing and lookup, with no cart or checkout.';
         }
 
-        $parts[] = 'Prices reflect the store\'s public (not-logged-in) customer group unless '
-            . 'configured otherwise.';
+        if ($this->callerContext?->isCustomer() ?? false) {
+            // Only true when a customer token was verified for THIS request.
+            $parts[] = 'The shopper is signed in to their account on this store. Account tools '
+                . '(their own orders and their own cart) act for that customer only and use their '
+                . 'own prices; catalog search shows the store\'s public prices. Nothing is ordered '
+                . 'without the shopper completing checkout on the store.';
+        } else {
+            $parts[] = 'Prices reflect the store\'s public (not-logged-in) customer group unless '
+                . 'configured otherwise.';
+        }
 
         $parts[] = self::FENCE_NOTICE;
 
@@ -250,6 +348,12 @@ class McpServer
                 if ($generated !== '') {
                     $annotations['title'] = $generated;
                 }
+            }
+
+            // A tool registered by another module has no built-in template
+            // above; its own annotation title is the best top-level title.
+            if (!isset($descriptor['title']) && isset($annotations['title']) && $annotations['title'] !== '') {
+                $descriptor['title'] = (string) $annotations['title'];
             }
 
             if ($annotations !== []) {

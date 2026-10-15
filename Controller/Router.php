@@ -14,7 +14,8 @@ use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\RouterInterface;
 
 /**
- * Maps POST /mcp → angeo_mcp/mcp/index.
+ * Maps POST /mcp → angeo_mcp/mcp/index, and the account-linking paths
+ * /mcp/link[/exchange|/token|/revoke] (2.4.0).
  *
  * Path matching is done on the trimmed path info, not on a prefix, so
  * LiteSpeed / proxy setups that pass "/mcp/" or "//mcp" still match
@@ -24,7 +25,19 @@ use Magento\Framework\App\RouterInterface;
  */
 class Router implements RouterInterface
 {
-    private const PATH = 'mcp';
+    /**
+     * Stable public paths → controller/action. The /mcp/link/* paths are what
+     * an MCP connector (proxy) is configured with, so they never change; the
+     * shopper-facing pages the store links to itself use the standard
+     * /angeo_mcp/... route.
+     */
+    private const PATHS = [
+        'mcp'              => ['mcp', 'index'],
+        'mcp/link'         => ['link', 'index'],     // 2.4.0
+        'mcp/link/exchange' => ['link', 'exchange'], // 2.4.0
+        'mcp/link/token'   => ['link', 'token'],     // 2.4.0
+        'mcp/link/revoke'  => ['link', 'revoke'],    // 2.4.0
+    ];
 
     public function __construct(
         private readonly ActionFactory $actionFactory
@@ -34,13 +47,15 @@ class Router implements RouterInterface
     public function match(RequestInterface $request): ?ActionInterface
     {
         $path = strtolower(trim($request->getPathInfo() ?? '', '/'));
-        if ($path !== self::PATH) {
+        $path = (string) preg_replace('#/{2,}#', '/', $path);
+        if (!isset(self::PATHS[$path])) {
             return null;
         }
+        [$controller, $action] = self::PATHS[$path];
 
         $request->setModuleName('angeo_mcp')
-            ->setControllerName('mcp')
-            ->setActionName('index');
+            ->setControllerName($controller)
+            ->setActionName($action);
 
         return $this->actionFactory->create(\Magento\Framework\App\Action\Forward::class);
     }

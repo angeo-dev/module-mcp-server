@@ -25,7 +25,7 @@
                        showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Require Bearer Token</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                    <comment><![CDATA[When <em>Yes</em>, every request must carry an Access Token of an active Integration (System → Extensions → Integrations, grant it the <em>MCP Server Agent Access</em> resource). Revoking the integration instantly cuts agent access.]]></comment>
+                    <comment><![CDATA[When <em>Yes</em>, every request must carry an Access Token of an active Integration (a customer token alone is not enough) (System → Extensions → Integrations, grant it the <em>MCP Server Agent Access</em> resource). Revoking the integration instantly cuts agent access.]]></comment>
                 </field>
                 <field id="log_calls" translate="label comment" type="select" sortOrder="30"
                        showInDefault="1" showInWebsite="1" showInStore="1">
@@ -129,6 +129,67 @@
                     <label>Rate Limit (requests/minute)</label>
                     <validate>validate-digits</validate>
                     <comment>Per client IP (plus token, when present). 0 disables the limiter.</comment>
+                </field>
+                <field id="customer_auth" translate="label comment" type="select" sortOrder="20"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Accept Customer Tokens</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[Lets tools act for a signed-in shopper (their own orders and cart). A connector sends the shopper's MCP-only token from Account Linking as <code>X-Customer-Token</code>, next to its Integration token. Leave <em>No</em> unless a module that needs it is installed, such as <code>angeo/module-mcp-reorder</code>.]]></comment>
+                </field>
+                <field id="storefront_customer_tokens" translate="label comment" type="select" sortOrder="25"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Accept Storefront Customer Tokens (testing)</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[Also accept ordinary Magento customer tokens (from REST login) at <code>/mcp</code>, e.g. for testing with Claude Code. <strong>Leave No in production.</strong> Such tokens were issued for the store's REST and GraphQL APIs, not for MCP; the MCP specification says servers must not accept them. Connectors use Account Linking, which issues MCP-only tokens.]]></comment>
+                </field>
+                <field id="allowed_origins" translate="label comment" type="textarea" sortOrder="30"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Allowed Browser Origins</label>
+                    <comment><![CDATA[Requests from a browser carry an <code>Origin</code> header; unknown origins get HTTP 403 (DNS-rebinding protection, required by the MCP transport). The store's own URLs are always allowed. AI platforms connect server-to-server without an Origin and are not affected. One origin per line, e.g. <code>http://localhost:6274</code> for the MCP Inspector.]]></comment>
+                </field>
+            </group>
+
+            <group id="linking" translate="label comment" type="text" sortOrder="35"
+                   showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Account Linking</label>
+                <comment><![CDATA[Lets a signed-in shopper connect their store account to an AI assistant through an MCP connector (for example mcp.angeo.dev). The shopper signs in <strong>on this store</strong> and approves; the connector never sees the password. Shoppers see and disconnect their assistants under <em>My Account → AI assistants</em>. Needs <em>Security → Accept Customer Tokens = Yes</em>.]]></comment>
+                <field id="enabled" translate="label" type="select" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Enable Account Linking</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                <field id="redirect_uris" translate="label comment" type="textarea" sortOrder="20"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Connector Redirect URIs</label>
+                    <comment><![CDATA[Where the shopper is sent back after approving, one per line, compared exactly. HTTPS only. Your connector provider gives you this value, e.g. <code>https://mcp.angeo.dev/authorize/linked</code>.]]></comment>
+                </field>
+                <field id="client_label" translate="label comment" type="text" sortOrder="30"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Connector Name Shown to Shoppers</label>
+                    <comment>e.g. "Claude via angeo.dev". Shown on the approval page and in My Account.</comment>
+                </field>
+                <field id="token_lifetime" translate="label comment" type="text" sortOrder="40"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>MCP Token Lifetime (minutes)</label>
+                    <validate>validate-digits validate-digits-range digits-range-5-1440</validate>
+                    <comment>Lifetime of the MCP-only token a connector holds for a shopper. It works at /mcp only, together with the connector's Integration token, and stops at once when the shopper disconnects. 5 – 1440, default 60.</comment>
+                </field>
+            </group>
+
+            <group id="protocol" translate="label" type="text" sortOrder="40"
+                   showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Protocol</label>
+                <field id="strict_headers" translate="label comment" type="select" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Strict MCP Headers</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[MCP 2026-07-28 requests must send <code>MCP-Protocol-Version</code>, <code>Mcp-Method</code> and, for tool calls, <code>Mcp-Name</code>. <em>Yes</em> rejects requests that omit them, as the specification requires. Headers that contradict the body are rejected either way. Set <em>No</em> only for a proxy that drops these headers. Older clients (2025-11-25 and before) are not affected.]]></comment>
+                </field>
+                <field id="list_ttl_seconds" translate="label comment" type="text" sortOrder="20"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Tool List Cache Hint (seconds)</label>
+                    <validate>validate-digits</validate>
+                    <comment>How long 2026-07-28 clients may cache tools/list and prompts/list. 0 = do not cache. Max 86400.</comment>
                 </field>
             </group>
         </section>

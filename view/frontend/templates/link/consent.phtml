@@ -1,0 +1,55 @@
+<?php
+/**
+ * @var \Angeo\McpServer\Block\Link\Consent $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+$error = $block->getErrorMessage();
+$fields = $block->getLinkFields();
+?>
+<div class="angeo-mcp-link">
+<?php if ($error !== '' || $fields === []): ?>
+    <div class="message error"><div><?= $escaper->escapeHtml($error ?: __('This connection link is not valid.')) ?></div></div>
+<?php else: ?>
+    <p>
+        <?= $escaper->escapeHtml(__(
+            '%1 wants to act for you on %2.',
+            (string) $block->getData('client_label'),
+            (string) $block->getData('store_label')
+        )) ?>
+    </p>
+    <p><?= $escaper->escapeHtml(__('Signed in as %1.', (string) $block->getData('customer_email'))) ?></p>
+
+    <strong><?= $escaper->escapeHtml(__('It will be able to:')) ?></strong>
+    <ul>
+        <?php foreach ($block->getPermissions() as $permission): ?>
+            <li><?= $escaper->escapeHtml($permission) ?></li>
+        <?php endforeach; ?>
+    </ul>
+    <ul>
+        <?php foreach ($block->getLimits() as $limit): ?>
+            <li><?= $escaper->escapeHtml($limit) ?></li>
+        <?php endforeach; ?>
+    </ul>
+
+    <form method="post" action="<?= $escaper->escapeUrl($block->getApproveUrl()) ?>">
+        <?= $block->getBlockHtml('formkey') ?>
+        <?php foreach ($fields as $name => $value): ?>
+            <input type="hidden"
+                   name="<?= $escaper->escapeHtmlAttr($name) ?>"
+                   value="<?= $escaper->escapeHtmlAttr($value) ?>"/>
+        <?php endforeach; ?>
+        <div class="actions-toolbar">
+            <div class="primary">
+                <button type="submit" name="decision" value="approve" class="action primary">
+                    <span><?= $escaper->escapeHtml(__('Allow')) ?></span>
+                </button>
+            </div>
+            <div class="secondary">
+                <button type="submit" name="decision" value="deny" class="action">
+                    <span><?= $escaper->escapeHtml(__('Cancel')) ?></span>
+                </button>
+            </div>
+        </div>
+    </form>
+<?php endif; ?>
+</div>

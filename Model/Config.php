@@ -20,7 +20,7 @@ use Magento\Store\Model\ScopeInterface;
  */
 class Config
 {
-    public const MODULE_VERSION = '2.2.1';
+    public const MODULE_VERSION = '2.4.0';
 
     public const XML_PATH_ENABLED        = 'angeo_mcp/general/enabled';
     public const XML_PATH_REQUIRE_TOKEN  = 'angeo_mcp/general/require_token';
@@ -29,6 +29,26 @@ class Config
     public const XML_PATH_DEFAULT_PAGE   = 'angeo_mcp/catalog/default_page_size';
     public const XML_PATH_MAX_PAGE       = 'angeo_mcp/catalog/max_page_size';
     public const XML_PATH_RATE_LIMIT     = 'angeo_mcp/security/rate_limit_per_minute';
+
+    /** @since 2.3.0 */
+    public const XML_PATH_CUSTOMER_AUTH   = 'angeo_mcp/security/customer_auth';
+    /** @since 2.3.0 */
+    public const XML_PATH_ALLOWED_ORIGINS = 'angeo_mcp/security/allowed_origins';
+    /** @since 2.3.0 */
+    public const XML_PATH_STRICT_HEADERS  = 'angeo_mcp/protocol/strict_headers';
+    /** @since 2.3.0 */
+    public const XML_PATH_LIST_TTL        = 'angeo_mcp/protocol/list_ttl_seconds';
+
+    /** @since 2.4.0 */
+    public const XML_PATH_LINKING_ENABLED   = 'angeo_mcp/linking/enabled';
+    /** @since 2.4.0 */
+    public const XML_PATH_LINKING_REDIRECTS = 'angeo_mcp/linking/redirect_uris';
+    /** @since 2.4.0 */
+    public const XML_PATH_LINKING_LABEL     = 'angeo_mcp/linking/client_label';
+    /** @since 2.4.0 */
+    public const XML_PATH_LINKING_TOKEN_TTL = 'angeo_mcp/linking/token_lifetime';
+    /** @since 2.4.0 */
+    public const XML_PATH_STOREFRONT_TOKENS = 'angeo_mcp/security/storefront_customer_tokens';
 
     /**
      * Agent-facing presentation. These decide what a model reads about this
@@ -258,5 +278,199 @@ class Config
     public function isConnectorConfigured(?StoreInterface $store = null): bool
     {
         return $this->getConnectorUrl($store) !== '';
+    }
+
+    /**
+     * Accept Magento customer access tokens and expose the signed-in customer
+     * to tools through CallerContextInterface.
+     *
+     * Off by default: nothing in this module needs a customer, and accepting
+     * customer credentials on a new endpoint is a decision the merchant should
+     * make when installing a module that does (e.g. angeo/module-mcp-reorder).
+     *
+     * @since 2.3.0
+     */
+    public function isCustomerAuthEnabled(?StoreInterface $store = null): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_CUSTOMER_AUTH,
+            ScopeInterface::SCOPE_STORE,
+            $store?->getId()
+        );
+    }
+
+    /**
+     * Extra browser origins allowed to call /mcp, e.g. a hosted MCP inspector.
+     * The store's own base URLs are always allowed; requests without an
+     * Origin header (server-to-server, which is how AI platforms connect) are
+     * unaffected.
+     *
+     * @return string[] normalised "scheme://host[:port]" values
+     * @since 2.3.0
+     */
+    public function getAllowedOrigins(?StoreInterface $store = null): array
+    {
+        $raw = (string) $this->scopeConfig->getValue(
+            self::XML_PATH_ALLOWED_ORIGINS,
+            ScopeInterface::SCOPE_STORE,
+            $store?->getId()
+        );
+
+        $origins = [];
+        foreach (preg_split('/[\s,]+/', $raw) ?: [] as $candidate) {
+            $normalised = self::normaliseOrigin($candidate);
+            if ($normalised !== null) {
+                $origins[] = $normalised;
+            }
+        }
+        return array_values(array_unique($origins));
+    }
+
+    /**
+     * "https://Example.com:443/path" -> "https://example.com". Null when the
+     * value is not an http(s) origin.
+     *
+     * @since 2.3.0
+     */
+    public static function normaliseOrigin(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+        $parts = parse_url($value);
+        if (!is_array($parts) || !isset($parts['scheme'], $parts['host'])) {
+            return null;
+        }
+        $scheme = strtolower($parts['scheme']);
+        if ($scheme !== 'http' && $scheme !== 'https') {
+            return null;
+        }
+        $origin = $scheme . '://' . strtolower($parts['host']);
+        $port = $parts['port'] ?? null;
+        if ($port !== null && !(($scheme === 'https' && $port === 443) || ($scheme === 'http' && $port === 80))) {
+            $origin .= ':' . $port;
+        }
+        return $origin;
+    }
+
+    /**
+     * MCP 2026-07-28 requests must carry MCP-Protocol-Version, Mcp-Method and
+     * (for tools/call and prompts/get) Mcp-Name. Strict mode rejects requests
+     * that omit them. Mismatched headers are rejected in either mode.
+     *
+     * @since 2.3.0
+     */
+    public function isStrictHeaders(?StoreInterface $store = null): bool
+    {
+        return $this->scopeConfig->isSetFlag(
+            self::XML_PATH_STRICT_HEADERS,
+            ScopeInterface::SCOPE_STORE,
+            $store?->getId()
+        );
+    }
+
+    /**
+     * Cache hint for tools/list and prompts/list (`ttlMs` in 2026-07-28).
+     *
+     * @since 2.3.0
+     */
+    public function getListTtlMs(?StoreInterface $store = null): int
+    {
+        $v = $this->scopeConfig->getValue(
+            self::XML_PATH_LIST_TTL,
+            ScopeInterface::SCOPE_STORE,
+            $store?->getId()
+        );
+        $seconds = $v === null || $v === '' ? 300 : max(0, (int) $v);
+        return min($seconds, 86400) * 1000;
+    }
+
+    /**
+     * Account linking: a signed-in shopper lets an MCP connector act for them.
+     * Needs customer tokens to be accepted as well, since that is what the
+     * connector receives.
+     *
+     * @since 2.4.0
+     */
+    public function isLinkingEnabled(?StoreInterface $store = null): bool
+    {
+        return $this->isCustomerAuthEnabled($store) && $this->scopeConfig->isSetFlag(
+            self::XML_PATH_LINKING_ENABLED,
+            ScopeInterface::SCOPE_STORE,
+            $store?->getId()
+        );
+    }
+
+    /**
+     * Redirect URIs a link may return to, compared byte for byte. Only https,
+     * no fragments. An empty list means linking cannot start.
+     *
+     * @return string[]
+     * @since 2.4.0
+     */
+    public function getLinkingRedirectUris(?StoreInterface $store = null): array
+    {
+        $raw = (string) $this->scopeConfig->getValue(
+            self::XML_PATH_LINKING_REDIRECTS,
+            ScopeInterface::SCOPE_STORE,
+            $store?->getId()
+        );
+        $uris = [];
+        foreach (preg_split('/[\s,]+/', $raw) ?: [] as $candidate) {
+            $candidate = trim($candidate);
+            if ($candidate !== '' && str_starts_with($candidate, 'https://') && !str_contains($candidate, '#')
+                && filter_var($candidate, FILTER_VALIDATE_URL) !== false
+            ) {
+                $uris[] = $candidate;
+            }
+        }
+        return array_values(array_unique($uris));
+    }
+
+    /**
+     * The connector's name as the shopper sees it on the approval page and in
+     * their account. Taken from configuration, never from the request, so a
+     * link cannot claim to be someone else.
+     *
+     * @since 2.4.0
+     */
+    public function getLinkingClientLabel(?StoreInterface $store = null): string
+    {
+        $label = trim((string) $this->scopeConfig->getValue(
+            self::XML_PATH_LINKING_LABEL,
+            ScopeInterface::SCOPE_STORE,
+            $store?->getId()
+        ));
+        return $label !== '' ? mb_substr($label, 0, 120) : 'AI assistant connector';
+    }
+
+    /**
+     * Lifetime of the MCP-only customer token, in seconds (setting is in
+     * minutes; 5 – 1440, default 60).
+     *
+     * @since 2.4.0
+     */
+    public function getLinkingTokenTtl(?StoreInterface $store = null): int
+    {
+        $v = $this->scopeConfig->getValue(self::XML_PATH_LINKING_TOKEN_TTL, ScopeInterface::SCOPE_STORE, $store?->getId());
+        $minutes = $v === null || $v === '' ? 60 : (int) $v;
+        return max(5, min($minutes, 1440)) * 60;
+    }
+
+    /**
+     * Also accept ordinary Magento customer tokens (from REST login) at /mcp.
+     *
+     * Off by default and meant for testing with Claude Code or the MCP
+     * Inspector: such a token was issued for the store's REST and GraphQL
+     * APIs, not for this MCP server, and the MCP specification says servers
+     * MUST NOT accept tokens not issued for them. Production connectors use
+     * account linking, which issues MCP-only tokens.
+     *
+     * @since 2.4.0
+     */
+    public function isStorefrontCustomerTokenAllowed(?StoreInterface $store = null): bool
+    {
+        return $this->scopeConfig->isSetFlag(self::XML_PATH_STOREFRONT_TOKENS, ScopeInterface::SCOPE_STORE, $store?->getId());
     }
 }

@@ -6,6 +6,138 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.0] - 2026-10-02
+
+Account linking: a signed-in shopper connects their store account to an AI
+assistant through an MCP connector, without the connector ever seeing their
+password. Off by default; nothing changes until a merchant enables it.
+
+### Security
+
+Reviewed against the MCP 2026-07-28 *Security Best Practices* before release:
+
+- **No token passthrough.** Connectors get MCP-only tokens (`amc_…`), never
+  Magento customer tokens. They work at `/mcp` only, only next to the
+  Integration token of the consumer that holds the grant, and die with the
+  grant. A stolen `amc_` token alone opens nothing.
+- **Storefront customer tokens at `/mcp` are off by default** (new setting
+  *Accept Storefront Customer Tokens (testing)*). In 2.3.0 they were accepted
+  whenever *Accept Customer Tokens* was on; 2.3.0 had not been tagged when
+  this was changed.
+- **Clickjacking:** the approval page sends `frame-ancestors 'none'` (added to
+  Magento's own CSP, not replacing it) and `X-Frame-Options: DENY`.
+- **Immediate revocation:** disconnecting under My Account stops the grant's
+  tokens at once, not at their expiry.
+
+### Added
+
+- `GET /mcp/link` approval page (store login, then an explicit Allow /
+  Cancel naming the connector, what it can do and what it cannot).
+- `POST /mcp/link/exchange`, `/mcp/link/token`, `/mcp/link/revoke` for the
+  connector, authenticated with its Integration token. One-time codes (two
+  minutes, PKCE S256 only), long-lived grants bound to the redeeming
+  integration, fresh customer tokens from Magento's own issuer.
+- *My Account → AI assistants*: see and disconnect connected assistants.
+- Tables `angeo_mcp_link_code`, `angeo_mcp_customer_grant` and
+  `angeo_mcp_access_token` (hashes only, removed with the customer). Hourly
+  cron purges used and expired codes and tokens.
+- Settings: *Account Linking → Enable*, *Connector Redirect URIs* (exact
+  match), *Connector Name Shown to Shoppers*, *MCP Token Lifetime*;
+  *Security → Accept Storefront Customer Tokens (testing)*.
+- `TokenValidator::consumerIdFor()`.
+
+### Changed
+
+- Router: `/mcp/link`, `/mcp/link/exchange`, `/mcp/link/token`,
+  `/mcp/link/revoke`; duplicate slashes are collapsed before matching.
+- README: the Varnish rule now also bypasses `/mcp/...` paths.
+- New dependency: `magento/module-cron`; `Magento_Customer` added to the
+  module sequence (the new tables reference `customer_entity`).
+
+### Quality
+
+- Unit tests: 197 (was 124), including the RFC 7636 PKCE test vector,
+  single-use codes under concurrency, integration binding of grants and MCP
+  tokens, and refusal of storefront tokens by default.
+  Magento2 coding standard: 0 errors. PHPStan level 5: no errors.
+
+---
+
+## [2.3.0] - not released separately
+
+Shipped as part of 2.4.0: on its own, 2.3.0 accepted ordinary Magento
+customer tokens at `/mcp`, which 2.4.0 turns off by default (see 2.4.0,
+*Security*).
+
+Adds MCP **2026-07-28** next to every earlier revision, a way for tools to act
+for a signed-in customer, and a security fix. Existing clients and tools keep
+working unchanged.
+
+### Security
+
+- **Integration-token check tightened.** `TokenValidator` accepted any active
+  `access` row in `oauth_token`. A store that issues opaque tokens keeps
+  customer and admin tokens in the same table, so with *Require Bearer
+  Token = Yes* a customer token passed as an integration token. A token now
+  passes only when it has an integration consumer and no customer or admin
+  owner (and `user_type` = integration when the column is set). **Upgrade if
+  you use *Require Bearer Token*.**
+- **Origin check.** Requests with an unknown browser `Origin` get HTTP 403
+  (DNS-rebinding protection, required by the MCP transport). No `Origin`
+  (server-to-server, how AI platforms connect) and the store's own URLs are
+  allowed. More origins: *Security → Allowed Browser Origins*.
+- **Header/body agreement** for 2026-07-28 requests: `MCP-Protocol-Version`,
+  `Mcp-Method` and `Mcp-Name` must match the body, or HTTP 400 / `-32020`.
+
+### Added
+
+- **MCP 2026-07-28 (stateless).** No handshake: the version comes from
+  `_meta` on each request. `server/discover`. `resultType` and
+  `_meta.serverInfo` on results; `ttlMs` / `cacheScope` on `tools/list` and
+  `prompts/list` (`private` when the caller is authenticated). Unsupported
+  version: HTTP 400 / `-32022` with the supported list. Unknown method: HTTP
+  404 / `-32601`. Error codes follow the final text (`-32020`, `-32021`,
+  `-32022`), not the release candidate.
+- **2025-11-25** added to the versions `initialize` negotiates.
+- **`Angeo\McpServer\Api\CallerContextInterface`** (`@api`). Tells a tool who
+  is calling: anonymous, integration, or a verified customer id.
+- **Customer tokens** (*Security → Accept Customer Tokens*, default *No*).
+  `Authorization: Bearer <customer token>`, or `X-Customer-Token` next to an
+  integration token for an MCP proxy acting for a shopper. Checked by
+  Magento's token services (JWT and opaque). An invalid `X-Customer-Token` is
+  HTTP 401, never a silent fall-back. A customer token alone does not satisfy
+  *Require Bearer Token*.
+- GET and DELETE on `/mcp` answer 405 with `Allow: POST`.
+- `Vary: Authorization, X-Customer-Token` on every response.
+- CLI: `bin/magento angeo:mcp:tools … --customer <id|email>` runs a tool as
+  that customer.
+- Agent call log: `auth` (caller kind) and `proto` (era) fields;
+  `server/discover` is logged; a tool result with `isError` counts as not OK.
+- Generated instructions say when a verified customer is signed in.
+- Tools from other modules get a top-level `title` from their annotations.
+- Settings: *Protocol → Strict MCP Headers* (Yes), *Protocol → Tool List
+  Cache Hint* (300 s).
+
+### Changed
+
+- `McpServer::handle()` takes an optional third argument, the negotiated
+  2026-07-28 version. `PROTOCOL_VERSION` is now `2025-11-25` (newest
+  handshake version); `LATEST_PROTOCOL_VERSION` is `2026-07-28`.
+- `SERVER_VERSION` / `MODULE_VERSION` constants match the package version
+  again (they still said 2.2.1 in 2.2.2).
+- New dependency: `magento/module-authorization` (already installed with
+  `magento/module-integration`).
+- README: the "v1.0 is read-only, cart arrives in 1.1" note and the old
+  roadmap are gone; new sections on protocol versions, customer tokens and
+  origins. SECURITY.md named the wrong module and an old version.
+
+### Quality
+
+- Unit tests: 124 (was 44), including the `/mcp` request pipeline.
+  Magento2 coding standard: 0 errors. PHPStan level 5: no errors.
+
+---
+
 ## [2.2.2] - 2026-09-15
 
 A code-quality release. No change to tools, schemas or responses.

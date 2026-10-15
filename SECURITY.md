@@ -4,8 +4,9 @@
 
 | Version | Supported |
 | --- | --- |
-| 1.0.x | ✅ |
-| < 1.0 | ❌ |
+| 2.4.x | ✅ |
+| 2.3.x | ✅ |
+| < 2.3 | ❌ — upgrade: 2.3.0 fixes an integration-token check (see CHANGELOG) |
 
 ## Reporting a vulnerability
 
@@ -13,7 +14,7 @@
 
 Email <info@angeo.dev> with:
 
-- the module-mcp-checkout and version affected
+- the module (`angeo/module-mcp-server`) and version affected
 - what an attacker can do, and what access they need to start
 - reproduction steps or a proof of concept
 - your assessment of impact
@@ -26,7 +27,12 @@ If you would rather use GitHub's private channel, [report it there](../../securi
 
 In scope:
 
-- Authentication or authorisation bypass
+- Authentication or authorisation bypass, including acting as a customer without a valid customer token
+- Account linking: redeeming a link code twice or without its PKCE verifier, using a grant through a different integration, or getting a token for a revoked, locked or other-website account
+- Any redirect from `/mcp/link` to a URI that is not on the configured list
+- Using an `amc_` MCP token without the Integration token it is bound to, or after its grant was revoked
+- Any way a connector obtains a Magento customer token through account linking
+- Header/body confusion: a request whose `Mcp-Method` / `Mcp-Name` headers name one thing while the body runs another
 - Any path by which an AI agent, or a client impersonating one, exceeds a configured server-side limit
 - Exposure of data an anonymous storefront visitor could not otherwise see
 - Injection, SSRF, or path traversal through tool arguments or request bodies

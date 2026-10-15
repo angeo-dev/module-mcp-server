@@ -7,6 +7,8 @@
             <module name="Magento_Catalog"/>
             <module name="Magento_CatalogInventory"/>
             <module name="Magento_Integration"/>
+            <!-- 2.4.0: link tables reference customer_entity. -->
+            <module name="Magento_Customer"/>
         </sequence>
     </module>
 </config>

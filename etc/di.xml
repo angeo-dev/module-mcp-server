@@ -102,16 +102,33 @@
         </arguments>
     </type>
 
+    <!-- Who is calling (2.3.0). One shared instance per request: the
+         controller writes it after authentication, tools read it through the
+         interface. -->
+    <preference for="Angeo\McpServer\Api\CallerContextInterface"
+                type="Angeo\McpServer\Model\Security\CallerContext"/>
+
     <type name="Angeo\McpServer\Model\Protocol\McpServer">
         <arguments>
             <argument name="config" xsi:type="object">Angeo\McpServer\Model\Config</argument>
             <argument name="promptRegistry" xsi:type="object">Angeo\McpServer\Model\Prompt\PromptRegistry</argument>
+            <argument name="callerContext" xsi:type="object">Angeo\McpServer\Model\Security\CallerContext</argument>
+        </arguments>
+    </type>
+
+    <type name="Angeo\McpServer\Controller\Mcp\Index">
+        <arguments>
+            <argument name="negotiator" xsi:type="object">Angeo\McpServer\Model\Protocol\ProtocolNegotiator</argument>
+            <argument name="callerContext" xsi:type="object">Angeo\McpServer\Model\Security\CallerContext</argument>
+            <argument name="customerTokenResolver" xsi:type="object">Angeo\McpServer\Model\Security\CustomerTokenResolver</argument>
         </arguments>
     </type>
 
     <type name="Angeo\McpServer\Console\Command\ToolsCommand">
         <arguments>
             <argument name="config" xsi:type="object">Angeo\McpServer\Model\Config</argument>
+            <argument name="callerContext" xsi:type="object">Angeo\McpServer\Model\Security\CallerContext</argument>
+            <argument name="customerRepository" xsi:type="object">Magento\Customer\Api\CustomerRepositoryInterface</argument>
         </arguments>
     </type>
 

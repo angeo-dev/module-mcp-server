@@ -1,0 +1,54 @@
+{
+    "angeo_mcp_link_code": {
+        "column": {
+            "code_hash": true,
+            "customer_id": true,
+            "website_id": true,
+            "redirect_uri": true,
+            "code_challenge": true,
+            "expires_at": true,
+            "used": true
+        },
+        "index": {
+            "ANGEO_MCP_LINK_CODE_EXPIRES_AT": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "ANGEO_MCP_LINK_CODE_CUSTOMER_ID_CUSTOMER_ENTITY_ENTITY_ID": true
+        }
+    },
+    "angeo_mcp_customer_grant": {
+        "column": {
+            "grant_id": true,
+            "customer_id": true,
+            "website_id": true,
+            "consumer_id": true,
+            "client_label": true,
+            "secret_hash": true,
+            "created_at": true,
+            "last_used_at": true,
+            "revoked_at": true
+        },
+        "index": {
+            "ANGEO_MCP_CUSTOMER_GRANT_CUSTOMER_ID": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "ANGEO_MCP_CUSTOMER_GRANT_CUSTOMER_ID_CUSTOMER_ENTITY_ENTITY_ID": true
+        }
+    },
+    "angeo_mcp_access_token": {
+        "column": {
+            "token_hash": true,
+            "grant_id": true,
+            "expires_at": true
+        },
+        "index": {
+            "ANGEO_MCP_ACCESS_TOKEN_EXPIRES_AT": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "ANGEO_MCP_ACCESS_TOKEN_GRANT_ID_ANGEO_MCP_CUSTOMER_GRANT": true
+        }
+    }
+}

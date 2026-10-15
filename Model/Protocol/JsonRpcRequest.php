@@ -11,7 +11,7 @@ namespace Angeo\McpServer\Model\Protocol;
 /**
  * Immutable JSON-RPC 2.0 request as used by MCP Streamable HTTP.
  *
- * Parsing rules (MCP spec 2025-06-18):
+ * Parsing rules (MCP spec 2025-06-18 and later):
  *  - body must be a single JSON object (JSON-RPC batching was REMOVED from
  *    the MCP spec in 2025-06-18 — arrays are rejected with -32600);
  *  - "jsonrpc" must be exactly "2.0";
@@ -91,5 +91,50 @@ class JsonRpcRequest
     public function isNotification(): bool
     {
         return $this->isNotification;
+    }
+
+    /**
+     * The request's `params._meta` object, or [] when absent.
+     *
+     * Since MCP 2026-07-28 every request carries its own protocol version,
+     * client identity and client capabilities here instead of negotiating
+     * them once in an `initialize` handshake.
+     *
+     * @return array<string, mixed>
+     * @since 2.3.0
+     */
+    public function getMeta(): array
+    {
+        $meta = $this->params['_meta'] ?? null;
+        return is_array($meta) ? $meta : [];
+    }
+
+    /**
+     * `_meta["io.modelcontextprotocol/protocolVersion"]`, or null.
+     *
+     * @since 2.3.0
+     */
+    public function getMetaProtocolVersion(): ?string
+    {
+        $version = $this->getMeta()['io.modelcontextprotocol/protocolVersion'] ?? null;
+        return is_string($version) && $version !== '' ? $version : null;
+    }
+
+    /**
+     * Value the `Mcp-Name` header must mirror: `params.name` for tools/call and
+     * prompts/get, `params.uri` for resources/read. Null for other methods.
+     *
+     * @since 2.3.0
+     */
+    public function getRoutingName(): ?string
+    {
+        if (!in_array($this->method, ['tools/call', 'prompts/get', 'resources/read'], true)) {
+            return null;
+        }
+        $value = $this->method === 'resources/read'
+            ? ($this->params['uri'] ?? null)
+            : ($this->params['name'] ?? null);
+
+        return is_string($value) ? $value : null;
     }
 }
