@@ -18,11 +18,12 @@ use Psr\Log\LoggerInterface;
 /**
  * Appends one JSON line per tools/call to var/log/angeo_mcp_agent.jsonl.
  *
- * This is deliberately a flat JSONL file, not a DB table:
- *  - zero schema/upgrade burden in 1.0;
- *  - trivially shippable (logrotate-friendly, tail-able, grep-able);
- *  - it is the raw feed for the future admin bot-traffic panel and the
- *    hosted agent-analytics service — the format is the product seed.
+ * A flat JSONL file for debugging on the server. It never leaves the store.
+ * For agent-traffic reports use angeo/module-agent-activity, which records
+ * MCP calls in the database.
+ *
+ * Off by default since 2.4.1. When the file passes 10 MB it is moved to
+ * angeo_mcp_agent.jsonl.1 (one old copy is kept), so it cannot fill the disk.
  *
  * Logged fields NEVER include tool result payloads (they may echo catalog
  * data at scale) or Authorization headers. Only: timestamp, store, method,
@@ -34,6 +35,8 @@ use Psr\Log\LoggerInterface;
 class AgentCallLogger
 {
     private const LOG_FILE = 'log/angeo_mcp_agent.jsonl';
+    private const ROTATED_FILE = 'log/angeo_mcp_agent.jsonl.1';
+    private const MAX_BYTES = 10 * 1024 * 1024;
     private const UA_MAX_LENGTH = 250;
 
     public function __construct(
@@ -85,6 +88,9 @@ class AgentCallLogger
 
         try {
             $dir = $this->filesystem->getDirectoryWrite(DirectoryList::VAR_DIR);
+            if ($dir->isFile(self::LOG_FILE) && (int) ($dir->stat(self::LOG_FILE)['size'] ?? 0) >= self::MAX_BYTES) {
+                $dir->renameFile(self::LOG_FILE, self::ROTATED_FILE);
+            }
             $stream = $dir->openFile(self::LOG_FILE, 'a');
             try {
                 $stream->lock();

@@ -6,6 +6,21 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.4.1] - 2026-10-26
+
+### Changed
+
+- **Log Agent Calls is off by default.** The JSONL log in
+  `var/log/angeo_mcp_agent.jsonl` is a debugging tool. Agent-traffic reports
+  come from `angeo/module-agent-activity`, which records MCP calls in the
+  database. Stores that saved *Yes* in the admin keep logging.
+- **The log file cannot grow without limit.** At 10 MB it is moved to
+  `angeo_mcp_agent.jsonl.1`; one old copy is kept.
+- Removed the docblock and roadmap lines that described the log as a feed
+  for a hosted analytics service. The log never leaves the store.
+
+---
+
 ## [2.4.0] - 2026-10-02
 
 Account linking: a signed-in shopper connects their store account to an AI

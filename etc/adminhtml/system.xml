@@ -31,7 +31,7 @@
                        showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Log Agent Calls</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                    <comment><![CDATA[One JSON line per agent tool call in <code>var/log/angeo_mcp_agent.jsonl</code> (timestamp, tool, user agent, duration — never payloads or tokens). This is the data source for agent-traffic analytics.]]></comment>
+                    <comment><![CDATA[One JSON line per agent tool call in <code>var/log/angeo_mcp_agent.jsonl</code> (timestamp, tool, user agent, duration — never payloads or tokens). For debugging on the server. Off by default; the file is moved to <code>.1</code> at 10 MB. For agent-traffic reports use <code>angeo/module-agent-activity</code>.]]></comment>
                 </field>
             </group>
 

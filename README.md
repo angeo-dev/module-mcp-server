@@ -106,7 +106,7 @@ products, and invisible products are indistinguishable from absent.
 |---|---|---|
 | Enable MCP Server | Yes | per store view |
 | Require Bearer Token | No | see *Authentication* below |
-| Log Agent Calls | Yes | JSONL in `var/log/angeo_mcp_agent.jsonl` — timestamp, tool, user agent, duration; never payloads or tokens |
+| Log Agent Calls | No | JSONL in `var/log/angeo_mcp_agent.jsonl` for debugging — timestamp, tool, user agent, duration; never payloads or tokens. Moved to `.1` at 10 MB. For reports use `angeo/module-agent-activity` |
 | Price Customer Group | NOT LOGGED IN | which prices agents see |
 | Default / Max Page Size | 10 / 50 | hard protocol cap 100 |
 | Rate Limit (req/min) | 60 | per IP (+ token when present); 0 disables |
@@ -352,8 +352,6 @@ interface.
 
 ## Roadmap
 
-* Admin agent-traffic panel on top of the JSONL log (the log has carried the
-  caller kind and protocol era since 2.3.0).
 * Optional Elastic/OpenSearch-backed search implementation.
 * Integration with [`angeo/module-ucp`](https://packagist.org/packages/angeo/module-ucp):
   the `/.well-known/ucp` profile advertises this MCP endpoint in its service

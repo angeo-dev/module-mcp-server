@@ -9,7 +9,7 @@
                      (angeo/module-ucp v1.2.0 lesson). -->
                 <enabled>1</enabled>
                 <require_token>0</require_token>
-                <log_calls>1</log_calls>
+                <log_calls>0</log_calls>
             </general>
             <agent>
                 <!-- Empty: generated from the store name and installed tools. -->
