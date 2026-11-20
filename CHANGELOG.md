@@ -6,6 +6,44 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.5.0] - 2026-11-09
+
+### Added
+
+- **MCP Server Card** at `GET /mcp/server-card` (SEP-2127, schema v1):
+  name, title, version, description, the `/mcp` endpoint with every
+  supported protocol version, and the source repository. No tools, prompts
+  or capabilities — those stay with `tools/list` and `server/discover`. When
+  *Require Bearer Token* is on, the card declares a required, secret
+  `Authorization` header, never a value. CORS `*`, `Cache-Control: public,
+  max-age=3600`, ETag and 304. 404 when the server is off for the store view.
+- **AI Catalog entry.** With `angeo/module-llms-txt` 5.1+, the store's
+  `/.well-known/ai-catalog.json` lists this server (type
+  `application/mcp-server-card+json`). *Discovery → Server Card in AI
+  Catalog* chooses the card: *Automatic* (the connector's card when a
+  Connector URL is set, else this store's own), *this store's*, *the
+  connector's only*, or *do not list*. No Composer dependency either way.
+- `Model\Discovery\ServerIdentity` (@api): one source for the server name,
+  title and version, used by `server/discover`, `initialize` and the card.
+
+### Changed
+
+- **Server name.** `serverInfo.name` is now the store's own reverse-DNS name
+  plus `/mcp` (`com.example.shop/mcp`; a store view under its own path adds
+  `-<code>`), and `serverInfo.title` is the store name. It was the product
+  name "Angeo MCP Server for Magento 2" on every store, which a Server Card
+  cannot use and which made all stores look like one server. *Discovery →
+  Server Name* sets a fixed name. Clients show the title; mcp.angeo.dev keys
+  connectors by URL, not by this name.
+
+### Fixed
+
+- **Version.** `server/discover`, `initialize` and `get_store_info`
+  reported 2.4.0 on 2.4.1. All three now read `Config::MODULE_VERSION`, and a
+  unit test ties it to `composer.json`.
+
+---
+
 ## [2.4.1] - 2026-10-26
 
 ### Changed

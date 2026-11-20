@@ -54,6 +54,23 @@
                 </field>
             </group>
 
+            <group id="discovery" translate="label comment" type="text" sortOrder="16"
+                   showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Discovery (Server Card and AI Catalog)</label>
+                <comment><![CDATA[How AI clients find this server before they connect: the MCP Server Card at <code>/mcp/server-card</code>, and its entry in the AI Catalog that <code>angeo/module-llms-txt</code> 5.1+ serves at <code>/.well-known/ai-catalog.json</code>.]]></comment>
+                <field id="server_name" translate="label comment" type="text" sortOrder="10"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Server Name</label>
+                    <comment><![CDATA[Leave empty: the name is built from the store domain, e.g. <code>com.example.shop/mcp</code>. Set it only when several store views share a domain and path. Format: reverse domain, one slash, no spaces.]]></comment>
+                </field>
+                <field id="catalog_entry" translate="label comment" type="select" sortOrder="20"
+                       showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Server Card in AI Catalog</label>
+                    <source_model>Angeo\McpServer\Model\Config\Source\CatalogEntry</source_model>
+                    <comment><![CDATA[<em>Automatic</em>: the connector's card when a Connector URL is set (the endpoint shoppers can use with sign-in), otherwise this store's own card.]]></comment>
+                </field>
+            </group>
+
                         <group id="agent" translate="label comment" type="text" sortOrder="15"
                    showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>Agent presentation</label>

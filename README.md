@@ -290,6 +290,30 @@ so they are not affected. To use a browser tool such as the MCP Inspector,
 add its origin under **Security → Allowed Browser Origins**
 (e.g. `http://localhost:6274`).
 
+## Discovery: Server Card and AI Catalog (2.5.0)
+
+AI clients can find this server before they connect:
+
+| What | Where |
+|---|---|
+| MCP Server Card | `GET /mcp/server-card` (`application/mcp-server-card+json`) |
+| AI Catalog entry | `/.well-known/ai-catalog.json`, served by `angeo/module-llms-txt` 5.1+ |
+
+The server names itself after your domain: `https://shop.example.com/` is
+`com.example.shop/mcp`. `server/discover`, `initialize` and the card always
+report the same name, title and version.
+
+Settings under **Discovery**:
+
+* **Server Name** — leave empty; set only when two store views share a domain
+  and path.
+* **Server Card in AI Catalog** — *Automatic* lists the connector's card when a
+  Connector URL is set (shoppers can use that endpoint with sign-in), otherwise
+  this store's own card.
+
+The full-page-cache rules above (`^/mcp($|/|\?)`) already cover
+`/mcp/server-card`. The card sends its own `Cache-Control` (one hour) and ETag.
+
 ## Connecting an agent
 
 **Claude Desktop / Claude Code** (`.mcp.json`):

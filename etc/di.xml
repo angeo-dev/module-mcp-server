@@ -113,6 +113,7 @@
             <argument name="config" xsi:type="object">Angeo\McpServer\Model\Config</argument>
             <argument name="promptRegistry" xsi:type="object">Angeo\McpServer\Model\Prompt\PromptRegistry</argument>
             <argument name="callerContext" xsi:type="object">Angeo\McpServer\Model\Security\CallerContext</argument>
+            <argument name="identity" xsi:type="object">Angeo\McpServer\Model\Discovery\ServerIdentity</argument>
         </arguments>
     </type>
 

@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <!-- Dispatched by angeo/module-llms-txt 5.1+ when it builds the AI Catalog. -->
+    <event name="angeo_ai_catalog_collect">
+        <observer name="angeo_mcp_server_ai_catalog" instance="Angeo\McpServer\Observer\AiCatalogEntry"/>
+    </event>
+</config>

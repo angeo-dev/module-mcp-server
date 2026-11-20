@@ -10,6 +10,7 @@ namespace Angeo\McpServer\Model\Protocol;
 
 use Angeo\McpServer\Api\CallerContextInterface;
 use Angeo\McpServer\Model\Config;
+use Angeo\McpServer\Model\Discovery\ServerIdentity;
 use Angeo\McpServer\Model\Prompt\PromptRegistry;
 use Angeo\McpServer\Model\Tool\ToolRegistry;
 use Magento\Store\Api\Data\StoreInterface;
@@ -39,8 +40,14 @@ use Magento\Store\Api\Data\StoreInterface;
  */
 class McpServer
 {
+    /**
+     * The product name. Since 2.5.0 serverInfo carries the store's own
+     * identity (see Discovery\ServerIdentity); this name is used only when
+     * McpServer is built without it (unit tests, old di.xml overrides).
+     */
     public const SERVER_NAME    = 'Angeo MCP Server for Magento 2';
-    public const SERVER_VERSION = '2.4.0';
+    /** One version for serverInfo, the Server Card and get_store_info. */
+    public const SERVER_VERSION = Config::MODULE_VERSION;
 
     /**
      * Newest revision negotiable through `initialize`, and every revision
@@ -62,7 +69,9 @@ class McpServer
          */
         private readonly ?Config $config = null,
         private readonly ?PromptRegistry $promptRegistry = null,
-        private readonly ?CallerContextInterface $callerContext = null
+        private readonly ?CallerContextInterface $callerContext = null,
+        /** @since 2.5.0 */
+        private readonly ?ServerIdentity $identity = null
     ) {
     }
 
@@ -116,7 +125,7 @@ class McpServer
         // 2026-07-28: every result says what kind it is and who answered.
         $fields = [
             'resultType' => 'complete',
-            '_meta'      => ['io.modelcontextprotocol/serverInfo' => $this->serverInfo()],
+            '_meta'      => ['io.modelcontextprotocol/serverInfo' => $this->serverInfo($store)],
         ];
         if (in_array($method, ['tools/list', 'prompts/list'], true)) {
             $fields += $this->cacheHints($store);
@@ -150,13 +159,22 @@ class McpServer
             ),
             'capabilities'      => $this->capabilities($store),
             'instructions'      => $this->buildInstructions($store),
-            '_meta'             => ['io.modelcontextprotocol/serverInfo' => $this->serverInfo()],
+            '_meta'             => ['io.modelcontextprotocol/serverInfo' => $this->serverInfo($store)],
         ] + $this->cacheHints($store));
     }
 
-    /** @return array{name: string, version: string} */
-    private function serverInfo(): array
+    /**
+     * The same identity as the Server Card (2.5.0): name from the store's
+     * domain, the store's title, the module version.
+     *
+     * @return array{name: string, version: string, title?: string}
+     */
+    private function serverInfo(StoreInterface $store): array
     {
+        if ($this->identity !== null) {
+            return $this->identity->serverInfo($store);
+        }
+
         return ['name' => self::SERVER_NAME, 'version' => self::SERVER_VERSION];
     }
 
@@ -194,7 +212,7 @@ class McpServer
         return JsonRpcResponse::result($id, [
             'protocolVersion' => $version,
             'capabilities'    => $this->capabilities($store),
-            'serverInfo'      => $this->serverInfo(),
+            'serverInfo'      => $this->serverInfo($store),
             'instructions'    => $this->buildInstructions($store),
         ]);
     }
@@ -301,9 +319,10 @@ class McpServer
 
     private function listTools(string|int|null $id, StoreInterface $store): JsonRpcResponse
     {
-        $label = $this->config?->getStoreLabel($store) ?? '';
-        $anchor = $label !== '' && ($this->config?->isDescriptionAnchoringEnabled($store) ?? false);
-        $titles = $this->config?->areToolTitlesEnabled($store) ?? false;
+        $config = $this->config;
+        $label = $config?->getStoreLabel($store) ?? '';
+        $anchor = $config !== null && $label !== '' && $config->isDescriptionAnchoringEnabled($store);
+        $titles = $config !== null && $config->areToolTitlesEnabled($store);
 
         $descriptors = [];
         foreach ($this->toolRegistry->getAvailable($store) as $tool) {

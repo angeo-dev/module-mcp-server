@@ -11,6 +11,11 @@
                 <require_token>0</require_token>
                 <log_calls>0</log_calls>
             </general>
+            <discovery>
+                <!-- Empty: built from the store domain (com.example.shop/mcp). -->
+                <server_name></server_name>
+                <catalog_entry>auto</catalog_entry>
+            </discovery>
             <agent>
                 <!-- Empty: generated from the store name and installed tools. -->
                 <instructions></instructions>

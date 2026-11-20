@@ -20,7 +20,7 @@ use Magento\Store\Model\ScopeInterface;
  */
 class Config
 {
-    public const MODULE_VERSION = '2.4.0';
+    public const MODULE_VERSION = '2.5.0';
 
     public const XML_PATH_ENABLED        = 'angeo_mcp/general/enabled';
     public const XML_PATH_REQUIRE_TOKEN  = 'angeo_mcp/general/require_token';
@@ -68,6 +68,10 @@ class Config
      * connector that is not theirs. Empty means the button does not render.
      */
     public const XML_PATH_CONNECTOR_URL   = 'angeo_mcp/connector/url';
+    /** @since 2.5.0 */
+    public const XML_PATH_SERVER_NAME     = 'angeo_mcp/discovery/server_name';
+    /** @since 2.5.0 auto | own | connector | none */
+    public const XML_PATH_CATALOG_ENTRY   = 'angeo_mcp/discovery/catalog_entry';
     public const XML_PATH_CONNECTOR_LABEL = 'angeo_mcp/connector/label';
 
     public function __construct(
@@ -262,6 +266,34 @@ class Config
             return '';
         }
         return $url;
+    }
+
+    /**
+     * A fixed server name instead of the one built from the store domain.
+     * Must be reverse-DNS with one slash ("com.example.shop/mcp"); anything
+     * else is ignored by ServerIdentity.
+     *
+     * @since 2.5.0
+     */
+    public function getServerNameOverride(?StoreInterface $store = null): string
+    {
+        return trim((string) $this->scopeConfig->getValue(
+            self::XML_PATH_SERVER_NAME,
+            ScopeInterface::SCOPE_STORE,
+            $store?->getId()
+        ));
+    }
+
+    /** @since 2.5.0 */
+    public function getCatalogEntryMode(?StoreInterface $store = null): string
+    {
+        $mode = (string) $this->scopeConfig->getValue(
+            self::XML_PATH_CATALOG_ENTRY,
+            ScopeInterface::SCOPE_STORE,
+            $store?->getId()
+        );
+
+        return in_array($mode, ['auto', 'own', 'connector', 'none'], true) ? $mode : 'auto';
     }
 
     /** @since 1.2.0 */

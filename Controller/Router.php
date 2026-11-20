@@ -37,6 +37,7 @@ class Router implements RouterInterface
         'mcp/link/exchange' => ['link', 'exchange'], // 2.4.0
         'mcp/link/token'   => ['link', 'token'],     // 2.4.0
         'mcp/link/revoke'  => ['link', 'revoke'],    // 2.4.0
+        'mcp/server-card'  => ['servercard', 'index'], // 2.5.0, SEP-2127
     ];
 
     public function __construct(
