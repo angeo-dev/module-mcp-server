@@ -47,7 +47,7 @@ class ServerDiscoveryTest extends TestCase
 
         self::assertSame(ServerCardBuilder::SCHEMA, $card['$schema']);
         self::assertSame('dev.angeo.demo/mcp', $card['name']);
-        self::assertSame('2.5.0', $card['version']);
+        self::assertSame(Config::MODULE_VERSION, $card['version']);
         self::assertSame('Angeo Demo Store', $card['title']);
         self::assertSame('https://demo.angeo.dev/', $card['websiteUrl']);
         self::assertSame('https://demo.angeo.dev/mcp', $card['remotes'][0]['url']);
@@ -112,5 +112,16 @@ class ServerDiscoveryTest extends TestCase
         self::assertSame('urn:air:shop.example.com:mcp:mcp', AiCatalogEntry::identifier('com.example.shop/mcp'));
         self::assertSame('urn:air:shop.example.com:mcp:mcp-de', AiCatalogEntry::identifier('com.example.shop/mcp-de'));
         self::assertSame('urn:air:127.0.0.1:mcp:mcp', AiCatalogEntry::identifier('127.0.0.1/mcp'));
+    }
+
+    public function testCatalogEntryMeetsArd(): void
+    {
+        $e = AiCatalogEntry::entry('dev.angeo.demo/mcp', 'Angeo Demo', 'https://demo.angeo.dev/mcp/server-card');
+        self::assertSame('urn:air:demo.angeo.dev:mcp:mcp', $e['identifier']);
+        self::assertSame('Angeo Demo — MCP server', $e['displayName']);
+        self::assertSame('https://demo.angeo.dev/mcp/server-card', $e['url']);
+        self::assertGreaterThanOrEqual(2, count($e['representativeQueries']));
+        self::assertLessThanOrEqual(5, count($e['representativeQueries']));
+        self::assertSame('Magento store — MCP server', AiCatalogEntry::entry('a.b/mcp', ' ', 'https://b.a/x')['displayName']);
     }
 }

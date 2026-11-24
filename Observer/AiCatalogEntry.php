@@ -56,12 +56,36 @@ class AiCatalogEntry implements ObserverInterface
         }
 
         $entries = (array) $catalog->getData('entries');
-        $entries[] = [
-            'identifier' => self::identifier($this->identity->name($store)),
+        $entries[] = self::entry($this->identity->name($store), $this->identity->title($store), $url);
+        $catalog->setData('entries', $entries);
+    }
+
+    /**
+     * One catalog entry. displayName is optional in AI Catalog 1.0 but
+     * required by ARD v0.91, and isitagentready.com rejects an entry without
+     * it; representativeQueries (2–5) are an ARD recommendation for registry
+     * search. Both are harmless for AI Catalog readers.
+     *
+     * @since 2.6.0
+     * @return array<string,mixed>
+     */
+    public static function entry(string $serverName, string $title, string $url): array
+    {
+        $title = trim($title) !== '' ? trim($title) : 'Magento store';
+
+        return [
+            'identifier' => self::identifier($serverName),
+            'displayName' => mb_substr($title . ' — MCP server', 0, 100),
+            'description' => mb_substr(sprintf('Product catalog and store information of %s.', $title), 0, 200),
             'type' => ServerCardBuilder::MEDIA_TYPE,
             'url' => $url,
+            'representativeQueries' => [
+                sprintf('Find products at %s', $title),
+                sprintf('Price and stock of a product at %s', $title),
+                sprintf('Which categories does %s sell?', $title),
+                sprintf('Shipping and store information for %s', $title),
+            ],
         ];
-        $catalog->setData('entries', $entries);
     }
 
     public static function cardUrl(string $mode, string $connectorUrl, string $baseUrl): ?string

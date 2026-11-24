@@ -50,6 +50,10 @@ class RouterTest extends TestCase
             'token'             => ['/mcp/link/token', 'link/token'],
             'revoke'            => ['/mcp/link/revoke', 'link/revoke'],
             'approve not alias' => ['/mcp/link/approve', null],
+            'server card'       => ['/mcp/server-card', 'servercard/index'],
+            'well-known card'   => ['/.well-known/mcp/server-card.json', 'servercard/index'],
+            'well-known mcp'    => ['/.well-known/mcp.json', 'servercard/index'],
+            'plural not alias'  => ['/.well-known/mcp/server-cards.json', null],
             'unknown'           => ['/mcp/other', null],
             'prefix only'       => ['/mcpx', null],
         ];

@@ -6,6 +6,18 @@ project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [2.6.0] - 2026-11-23
+
+### Added
+
+- **AI Catalog entry carries `displayName`, `description` and 2–5
+  `representativeQueries`.** ARD v0.91 requires `displayName`;
+  isitagentready.com rejected the catalog without it. Needs
+  `angeo/module-llms-txt` 5.2+ to keep the queries.
+- **The Server Card at the well-known paths**: `/.well-known/mcp/server-card.json`
+  (SEP-1649, what scanners probe) and `/.well-known/mcp.json`, next to
+  `/mcp/server-card`. Same card, same headers.
+
 ## [2.5.0] - 2026-11-09
 
 ### Added

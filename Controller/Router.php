@@ -38,6 +38,10 @@ class Router implements RouterInterface
         'mcp/link/token'   => ['link', 'token'],     // 2.4.0
         'mcp/link/revoke'  => ['link', 'revoke'],    // 2.4.0
         'mcp/server-card'  => ['servercard', 'index'], // 2.5.0, SEP-2127
+        // 2.6.0: the same card at the well-known paths that scanners and
+        // clients probe from a bare domain (SEP-1649 and its successor).
+        '.well-known/mcp/server-card.json' => ['servercard', 'index'],
+        '.well-known/mcp.json'             => ['servercard', 'index'],
     ];
 
     public function __construct(
